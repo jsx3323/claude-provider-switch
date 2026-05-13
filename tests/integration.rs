@@ -691,3 +691,81 @@ fn test_cli_version() {
     assert!(ok);
     assert!(stdout.contains("0.1.0"));
 }
+
+#[test]
+fn test_cli_use_reapply_same_profile() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a","API_TIMEOUT_MS":"3000"}}"#);
+
+    claude_switch::store::save_profile("work", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://a", "ANTHROPIC_API_KEY": "sk-a", "ANTHROPIC_MODEL": "a"
+    })).unwrap();
+
+    // 第一次 use
+    let (ok, _, stderr) = run_cli("use work", dir.path());
+    assert!(ok, "first use failed: {}", stderr);
+
+    // 再次 use 同一个 profile — 不应破坏 settings
+    let (ok, stdout, stderr) = run_cli("use work", dir.path());
+    assert!(ok, "re-apply failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Switched to profile 'work'"));
+
+    let settings = read_settings(dir.path());
+    let env_obj = get_env_obj(&settings);
+    assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
+    assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000"); // 非 ANTHROPIC_* 保留
+}
+
+#[test]
+fn test_cli_use_in_project_without_env_field() {
+    let _store = setup_store();
+    // Claude Code 刚初始化的项目：只有 permissions，没有 env
+    let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]}}"#);
+
+    claude_switch::store::save_profile("first", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://first", "ANTHROPIC_API_KEY": "sk-first", "ANTHROPIC_MODEL": "first"
+    })).unwrap();
+
+    let (ok, stdout, stderr) = run_cli("use first", dir.path());
+    assert!(ok, "use failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Switched to profile 'first'"));
+
+    let settings = read_settings(dir.path());
+    assert!(settings.get("permissions").is_some());
+    let env_obj = get_env_obj(&settings);
+    assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://first");
+}
+
+#[test]
+fn test_cli_delete_nonactive_no_force() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("other", &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    // other 不是活跃 profile，--force 不需要，也不应提示确认
+    let (ok, stdout, stderr) = run_cli("delete other", dir.path());
+    assert!(ok, "delete failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Deleted profile 'other'"));
+    assert!(!claude_switch::store::list_profiles().unwrap().contains(&"other".to_string()));
+}
+
+#[test]
+fn test_cli_use_corrupted_settings() {
+    let _store = setup_store();
+    // settings.local.json 存在但内容是非法 JSON
+    let dir = tempfile::tempdir().unwrap();
+    let claude_dir = dir.path().join(".claude");
+    fs::create_dir_all(&claude_dir).unwrap();
+    fs::write(claude_dir.join("settings.local.json"), "{invalid json!!!}").unwrap();
+
+    claude_switch::store::save_profile("test", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://a", "ANTHROPIC_API_KEY": "sk-a", "ANTHROPIC_MODEL": "a"
+    })).unwrap();
+
+    let (ok, _, stderr) = run_cli("use test", dir.path());
+    assert!(!ok);
+    assert!(stderr.contains("Invalid JSON"));
+}
