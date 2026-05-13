@@ -39,7 +39,9 @@ pub fn write_current(project: &Path, name: &str) -> Result<(), CsError> {
     let path = project_current_path(project);
     let dir = path.parent().unwrap();
     fs::create_dir_all(dir).map_err(|e| io_err(dir, e))?;
-    fs::write(&path, name).map_err(|e| io_err(&path, e))?;
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, name).map_err(|e| io_err(&tmp, e))?;
+    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
     Ok(())
 }
 
@@ -70,7 +72,9 @@ pub fn save_profile(name: &str, content: &Value) -> Result<(), CsError> {
     fs::create_dir_all(&dir).map_err(|e| io_err(&dir, e))?;
     let path = profile_path(name);
     let json = serde_json::to_string_pretty(content).map_err(|e| serialization_err(&path.display().to_string(), e))?;
-    fs::write(&path, json).map_err(|e| io_err(&path, e))?;
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, &json).map_err(|e| io_err(&tmp, e))?;
+    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
     Ok(())
 }
 
@@ -101,8 +105,18 @@ pub fn write_settings_local(project: &Path, content: &Value) -> Result<(), CsErr
     let path = settings_local_path(project);
     let dir = path.parent().unwrap();
     fs::create_dir_all(dir).map_err(|e| io_err(dir, e))?;
+
+    // 备份已有文件
+    if path.exists() {
+        let bak = path.with_extension("json.bak");
+        fs::copy(&path, &bak).map_err(|e| io_err(&bak, e))?;
+    }
+
+    // 原子写入：写临时文件 → rename
     let json = serde_json::to_string_pretty(content).map_err(|e| serialization_err(&path.display().to_string(), e))?;
-    fs::write(&path, json).map_err(|e| io_err(&path, e))?;
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, &json).map_err(|e| io_err(&tmp, e))?;
+    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
     Ok(())
 }
 

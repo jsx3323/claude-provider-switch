@@ -793,3 +793,56 @@ fn test_cli_use_corrupted_settings() {
     assert!(!ok);
     assert!(stderr.contains("Invalid JSON"));
 }
+
+// ============================================================
+// 原子写入 + 备份测试
+// ============================================================
+
+#[test]
+fn test_write_settings_creates_backup() {
+    let _store = setup_store();
+    // 初始 settings 内容
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_MODEL":"old"}}"#);
+    let original = read_settings(dir.path());
+
+    claude_switch::store::save_profile("new", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_MODEL": "new"
+    })).unwrap();
+    run_cli("use new", dir.path());
+
+    // 备份文件应存在且内容与原始一致
+    let bak_path = dir.path().join(".claude/settings.local.json.bak");
+    assert!(bak_path.exists());
+    let bak_content: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(&bak_path).unwrap()
+    ).unwrap();
+    assert_eq!(bak_content, original);
+}
+
+#[test]
+fn test_write_settings_no_backup_when_missing() {
+    let _store = setup_store();
+    let dir = setup_project_no_settings();
+    assert!(!dir.path().join(".claude/settings.local.json").exists());
+
+    claude_switch::store::save_profile("newproj", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_API_KEY": "sk-new", "ANTHROPIC_MODEL": "new"
+    })).unwrap();
+    run_cli("use newproj", dir.path());
+
+    // 无旧文件时不产生备份
+    let bak_path = dir.path().join(".claude/settings.local.json.bak");
+    assert!(!bak_path.exists());
+}
+
+#[test]
+fn test_atomic_write_no_residual_tmp() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("clean", &serde_json::json!({"ANTHROPIC_MODEL":"y"})).unwrap();
+    run_cli("use clean", dir.path());
+
+    // 临时文件不应残留
+    assert!(!dir.path().join(".claude/settings.local.json.tmp").exists());
+}

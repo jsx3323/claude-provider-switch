@@ -16,7 +16,7 @@ src/
     mod.rs        — 显式 re-export（不含 validate_name）
     keys.rs       — KEY_* 常量（7 个）+ is_claude_env_key + derive_default_models
     path.rs       — 路径构造 + find_project_dir + simple_hash（pub(crate）内部函数）
-    io.rs         — 文件 CRUD（profile/current/settings 读写）+ read_current_env（settings 不存在时返回默认空值）
+    io.rs         — 文件 CRUD（profile/current/settings 读写）+ read_current_env（settings 不存在时返回默认空值）+ 原子写入（write→tmp→rename）+ settings 备份
     merge.rs      — merge_env 纯函数（不读写文件）
   command/
     add.rs        — 交互式创建 profile
@@ -33,6 +33,8 @@ tests/
 
 - 环境变量 key 用 `KEY_*` 常量（store/keys.rs 中 7 个），不硬编码字符串
 - 文件操作 TOCTOU-free：直接操作 + `match` NotFound，不先 `exists()` 再操作
+- 写入操作原子性：先写临时文件 → `fs::rename`，防止半写损坏
+- `write_settings_local` 备份已有文件到 `.claude/settings.local.json.bak`，不自动清理
 - 注释只写非显而易见的 WHY，不写 WHAT
 - 错误用 CsError 枚举 + exit_code/hint，不 println 后 exit
 - 命令模块签名：`pub fn run(..., project: &Path) -> Result<(), CsError>`（add 除外）
