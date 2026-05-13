@@ -59,10 +59,10 @@ impl CsError {
     }
 }
 
-pub fn io_err(path: &str, source: std::io::Error) -> CsError {
-    CsError::Io { path: path.into(), source }
+pub fn io_err(path: impl AsRef<std::path::Path>, source: std::io::Error) -> CsError {
+    CsError::Io { path: path.as_ref().display().to_string(), source }
 }
 
-pub fn json_err(path: &str, source: serde_json::Error) -> CsError {
-    CsError::Json { path: path.into(), source }
+pub fn json_err(path: impl AsRef<std::path::Path>, source: serde_json::Error) -> CsError {
+    CsError::Json { path: path.as_ref().display().to_string(), source }
 }
