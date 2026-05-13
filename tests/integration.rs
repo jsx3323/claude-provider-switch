@@ -403,6 +403,37 @@ fn test_cli_use_nonexistent() {
 }
 
 // ============================================================
+// 错误路径测试
+// ============================================================
+
+#[test]
+fn test_cli_add_invalid_name() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+    let (ok, _, stderr) = run_cli("add bad.name", dir.path());
+    assert!(!ok);
+    assert!(stderr.contains("Invalid profile name"));
+}
+
+#[test]
+fn test_cli_current_no_active() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+    let (ok, stdout, stderr) = run_cli("current", dir.path());
+    assert!(ok);
+    assert!(combined_output(&stdout, &stderr).contains("No active profile"));
+}
+
+#[test]
+fn test_cli_diff_nonexistent() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+    let (ok, _, stderr) = run_cli("diff nonexistent", dir.path());
+    assert!(!ok);
+    assert!(stderr.contains("not found"));
+}
+
+// ============================================================
 // 完整端到端流程
 // ============================================================
 
