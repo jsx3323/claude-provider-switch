@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::error::{CsError, json_err};
+use crate::error::{CsError, serialization_err};
 use crate::output;
 use crate::store::{read_current_env, read_profile};
 use similar::{ChangeTag, TextDiff};
@@ -10,9 +10,9 @@ pub fn run(name: &str, project: &Path) -> Result<(), CsError> {
     let profile_env = read_profile(name)?;
 
     let current_json = serde_json::to_string_pretty(&current_env)
-        .map_err(|e| json_err("current env", e))?;
+        .map_err(|e| serialization_err("current env", e))?;
     let profile_json = serde_json::to_string_pretty(&profile_env)
-        .map_err(|e| json_err(name, e))?;
+        .map_err(|e| serialization_err(name, e))?;
 
     if current_json == profile_json {
         output::info(&format!("No differences between current env and profile '{}'", name));

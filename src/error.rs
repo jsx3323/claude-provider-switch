@@ -31,6 +31,15 @@ pub enum CsError {
         path: String,
         source: serde_json::Error,
     },
+
+    #[error("Malformed JSON: {detail}")]
+    MalformedJson { detail: String },
+
+    #[error("Serialization error in {context}: {source}")]
+    Serialization {
+        context: String,
+        source: serde_json::Error,
+    },
 }
 
 impl CsError {
@@ -43,6 +52,8 @@ impl CsError {
             CsError::InvalidProfileName { .. } => 5,
             CsError::Io { .. } => 6,
             CsError::Json { .. } => 7,
+            CsError::MalformedJson { .. } => 8,
+            CsError::Serialization { .. } => 9,
         }
     }
 
@@ -53,6 +64,9 @@ impl CsError {
             }
             CsError::NoActiveProfile => {
                 Some("Use 'claude-switch add <name>' to create and activate a profile".into())
+            }
+            CsError::MalformedJson { .. } => {
+                Some("Check your .claude/settings.local.json for manual edits that broke the structure".into())
             }
             _ => None,
         }
@@ -65,4 +79,8 @@ pub fn io_err(path: impl AsRef<std::path::Path>, source: std::io::Error) -> CsEr
 
 pub fn json_err(path: impl AsRef<std::path::Path>, source: serde_json::Error) -> CsError {
     CsError::Json { path: path.as_ref().display().to_string(), source }
+}
+
+pub fn serialization_err(context: &str, source: serde_json::Error) -> CsError {
+    CsError::Serialization { context: context.into(), source }
 }

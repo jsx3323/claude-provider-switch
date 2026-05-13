@@ -130,63 +130,62 @@ fn test_list_profiles() {
 }
 
 // ============================================================
-// use / merge 测试
+// merge 纯函数测试
 // ============================================================
 
 #[test]
-fn test_use_clears_old_keys_and_writes_new() {
-    let _store = setup_store();
-    let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old-model","ANTHROPIC_SMALL_FAST_MODEL":"old-model","API_TIMEOUT_MS":"3000","OTHER":"keep"}}"#);
-
+fn test_merge_clears_old_keys_and_writes_new() {
+    let settings = serde_json::json!({"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old-model","ANTHROPIC_SMALL_FAST_MODEL":"old-model","API_TIMEOUT_MS":"3000","OTHER":"keep"}});
     let new_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new-model","ANTHROPIC_DEFAULT_HAIKU_MODEL":"haiku"});
-    claude_switch::store::merge_env_to_settings(dir.path(), &new_env).unwrap();
-
-    let settings = read_settings(dir.path());
-    let env_obj = get_env_obj(&settings);
+    let (merged, _changed) = claude_switch::store::merge_env(settings, &new_env).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
-    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL")); // 旧 key 清除
-    assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");   // 非 ANTHROPIC_* 保留
-    assert!(settings.get("permissions").is_some());                // permissions 保留
+    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+    assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");
+    assert!(merged.get("permissions").is_some());
 }
 
 #[test]
-fn test_use_switch_back_and_forth() {
-    let _store = setup_store();
-    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"}}"#);
-
+fn test_merge_switch_back_and_forth() {
     let a_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"});
-    claude_switch::store::save_profile("a", &a_env).unwrap();
-
     let b_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://b","ANTHROPIC_API_KEY":"sk-b","ANTHROPIC_MODEL":"b"});
-    claude_switch::store::merge_env_to_settings(dir.path(), &b_env).unwrap();
+    let settings = serde_json::json!({"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"}});
 
-    let a_profile = claude_switch::store::read_profile("a").unwrap();
-    claude_switch::store::merge_env_to_settings(dir.path(), &a_profile).unwrap();
-
-    let settings = read_settings(dir.path());
-    let env_obj = get_env_obj(&settings);
+    let (merged, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
+    let (merged, _) = claude_switch::store::merge_env(merged, &a_env).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
 }
 
 #[test]
-fn test_use_creates_env_when_missing() {
-    let _store = setup_store();
-    let dir = setup_project(r#"{"permissions":{"allow":["Bash"]}}"#);
-    claude_switch::store::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
-    let settings = read_settings(dir.path());
-    assert!(settings.get("env").is_some());
-    assert!(settings.get("permissions").is_some());
+fn test_merge_creates_env_when_missing() {
+    let settings = serde_json::json!({"permissions":{"allow":["Bash"]}});
+    let (merged, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    assert!(merged.get("env").is_some());
+    assert!(merged.get("permissions").is_some());
 }
 
 #[test]
-fn test_use_with_empty_env() {
-    let _store = setup_store();
-    let dir = setup_project(r#"{"permissions":{"allow":["Bash"]},"env":{}}"#);
-    claude_switch::store::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
-    let settings = read_settings(dir.path());
-    let env_obj = get_env_obj(&settings);
+fn test_merge_with_empty_env() {
+    let settings = serde_json::json!({"permissions":{"allow":["Bash"]},"env":{}});
+    let (merged, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.len(), 1);
+}
+
+#[test]
+fn test_merge_malformed_env_values() {
+    let settings = serde_json::json!({"env":{}});
+    let result = claude_switch::store::merge_env(settings, &serde_json::json!("not an object"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_merge_malformed_settings_env() {
+    let settings = serde_json::json!({"env":"not an object"});
+    let result = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"}));
+    assert!(result.is_err());
 }
 
 // ============================================================
@@ -420,7 +419,9 @@ fn test_full_workflow() {
     claude_switch::store::save_profile("b", &b_env).unwrap();
 
     // 切到 b
-    claude_switch::store::merge_env_to_settings(project, &b_env).unwrap();
+    let settings = claude_switch::store::read_settings_local(project).unwrap();
+    let (merged, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
+    claude_switch::store::write_settings_local(project, &merged).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://b");
@@ -429,7 +430,9 @@ fn test_full_workflow() {
 
     // 切回 a
     let a_profile = claude_switch::store::read_profile("a").unwrap();
-    claude_switch::store::merge_env_to_settings(project, &a_profile).unwrap();
+    let settings = claude_switch::store::read_settings_local(project).unwrap();
+    let (merged, _) = claude_switch::store::merge_env(settings, &a_profile).unwrap();
+    claude_switch::store::write_settings_local(project, &merged).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
