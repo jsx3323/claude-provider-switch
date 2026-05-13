@@ -2,13 +2,13 @@ use std::path::Path;
 
 use crate::error::CsError;
 use crate::output;
-use crate::store::{list_profiles, read_current, profile_path};
+use crate::store::{list_profiles, read_current};
 
 pub fn run(project: &Path) -> Result<(), CsError> {
     let profiles = list_profiles()?;
     let current = read_current(project)?;
 
-    if profiles.is_empty() {
+    if profiles.is_empty() && current.is_none() {
         output::info("No profiles found. Use 'claude-switch add <name>' to create one.");
         return Ok(());
     }
@@ -17,10 +17,13 @@ pub fn run(project: &Path) -> Result<(), CsError> {
 
     for name in &profiles {
         let is_active = current.as_ref() == Some(name);
-        if is_active && !profile_path(name).exists() {
-            output::list_item_missing(name);
-        } else {
-            output::list_item(name, is_active);
+        output::list_item(name, is_active);
+    }
+
+    // 活跃 profile 的文件被手动删除
+    if let Some(active) = &current {
+        if !profiles.contains(active) {
+            output::list_item_missing(active);
         }
     }
 

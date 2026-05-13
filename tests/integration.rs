@@ -63,6 +63,12 @@ fn run_cli_stdin(args: &str, input: &str, project: &std::path::Path) -> (bool, S
      String::from_utf8_lossy(&output.stderr).to_string())
 }
 
+fn setup_project_no_settings() -> TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join(".claude")).unwrap();
+    dir
+}
+
 fn combined_output(stdout: &str, stderr: &str) -> String {
     stdout.to_string() + stderr
 }
@@ -606,4 +612,81 @@ fn test_full_workflow() {
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
     assert!(!env_obj.contains_key("ANTHROPIC_DEFAULT_OPUS_MODEL"));
+}
+
+// ============================================================
+// 补充场景测试
+// ============================================================
+
+#[test]
+fn test_cli_use_creates_settings_when_missing() {
+    let _store = setup_store();
+    // 项目没有 settings.local.json，只有 .claude 目录
+    let dir = setup_project_no_settings();
+    assert!(!dir.path().join(".claude/settings.local.json").exists());
+
+    claude_switch::store::save_profile("newproj", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_API_KEY": "sk-new", "ANTHROPIC_MODEL": "new"
+    })).unwrap();
+
+    let (ok, stdout, stderr) = run_cli("use newproj", dir.path());
+    assert!(ok, "use failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Switched to profile 'newproj'"));
+
+    // use 命令应自动创建 settings.local.json
+    let settings_path = dir.path().join(".claude/settings.local.json");
+    assert!(settings_path.exists());
+    let settings = read_settings(dir.path());
+    let env_obj = get_env_obj(&settings);
+    assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
+    assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
+}
+
+#[test]
+fn test_cli_delete_active_clears_current_marker() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("active-del", &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    run_cli("use active-del", dir.path());
+
+    // 确认 current marker 存在
+    assert_eq!(claude_switch::store::read_current(dir.path()).unwrap(), Some("active-del".to_string()));
+
+    // --force 删除活跃 profile
+    let (ok, _, stderr) = run_cli("delete active-del --force", dir.path());
+    assert!(ok, "delete failed: {}", stderr);
+
+    // current marker 应被清除
+    assert!(claude_switch::store::read_current(dir.path()).unwrap().is_none());
+}
+
+#[test]
+fn test_cli_list_shows_missing_active() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("vanish", &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    run_cli("use vanish", dir.path());
+
+    // 手动删除 profile 文件（模拟用户误删）
+    let path = claude_switch::store::profile_path("vanish");
+    fs::remove_file(&path).unwrap();
+
+    // list 应显示 "(active - missing!)"
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("vanish"));
+    assert!(out.contains("missing"));
+}
+
+#[test]
+fn test_cli_version() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+    let (ok, stdout, _) = run_cli("--version", dir.path());
+    assert!(ok);
+    assert!(stdout.contains("0.1.0"));
 }

@@ -11,9 +11,6 @@ pub enum CsError {
     #[error("Profile '{name}' already exists. Use --force to overwrite.")]
     ProfileExists { name: String },
 
-    #[error("No .claude/settings.local.json found in {path}")]
-    SettingsNotFound { path: String },
-
     #[error("No active profile for this project")]
     NoActiveProfile,
 
@@ -47,7 +44,6 @@ impl CsError {
         match self {
             CsError::ProfileNotFound { .. } => 1,
             CsError::ProfileExists { .. } => 2,
-            CsError::SettingsNotFound { .. } => 3,
             CsError::NoActiveProfile => 4,
             CsError::InvalidProfileName { .. } => 5,
             CsError::Io { .. } => 6,
@@ -59,9 +55,6 @@ impl CsError {
 
     pub fn hint(&self) -> Option<String> {
         match self {
-            CsError::SettingsNotFound { .. } => {
-                Some("Run 'claude' first to initialize the project, then use 'claude-switch add'".into())
-            }
             CsError::NoActiveProfile => {
                 Some("Use 'claude-switch add <name>' to create and activate a profile".into())
             }
