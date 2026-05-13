@@ -634,10 +634,11 @@ fn test_cli_use_creates_settings_when_missing() {
     let out = combined_output(&stdout, &stderr);
     assert!(out.contains("Switched to profile 'newproj'"));
 
-    // use 命令应自动创建 settings.local.json
+    // use 命令应自动创建 settings.local.json（含 permissions 和 env）
     let settings_path = dir.path().join(".claude/settings.local.json");
     assert!(settings_path.exists());
     let settings = read_settings(dir.path());
+    assert!(settings.get("permissions").is_some());
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");

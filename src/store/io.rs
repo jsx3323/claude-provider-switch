@@ -90,8 +90,7 @@ pub fn read_settings_local(project: &Path) -> Result<Value, CsError> {
     match fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).map_err(|e| json_err(&path, e)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // 文件不存在时返回默认空 settings，use 命令会自动创建
-            Ok(serde_json::json!({"env": {}}))
+            Ok(serde_json::json!({"permissions": {"allow": [], "deny": []}, "env": {}}))
         }
         Err(e) => Err(io_err(&path, e)),
     }
