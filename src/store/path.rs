@@ -53,11 +53,3 @@ pub(crate) fn simple_hash(s: &str) -> String {
     }
     format!("{:016x}", hash)
 }
-
-// dirs::home_dir 不在依赖中，自己实现
-mod dirs {
-    use std::path::PathBuf;
-    pub fn home_dir() -> Option<PathBuf> {
-        std::env::var("HOME").ok().map(PathBuf::from)
-    }
-}
