@@ -3,16 +3,11 @@ pub mod path;
 pub mod io;
 pub mod merge;
 
-pub use keys::*;
-pub use path::*;
-pub use io::*;
-pub use merge::*;
-
-use crate::error::CsError;
-
-pub fn validate_name(name: &str) -> Result<(), CsError> {
-    if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-        return Err(CsError::InvalidProfileName { name: name.into() });
-    }
-    Ok(())
-}
+pub use keys::{KEY_BASE_URL, KEY_API_KEY, KEY_MODEL, KEY_SMALL_FAST_MODEL,
+               KEY_DEFAULT_HAIKU, KEY_DEFAULT_SONNET, KEY_DEFAULT_OPUS,
+               is_claude_env_key, derive_default_models};
+pub use path::{profile_path, find_project_dir};
+pub use io::{list_profiles, read_current, write_current, clear_current,
+             read_profile, save_profile, delete_profile, read_current_env,
+             read_settings_local, write_settings_local};
+pub use merge::merge_env;

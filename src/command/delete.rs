@@ -1,9 +1,10 @@
 use std::path::Path;
 
+use crate::cli::validate_name;
 use crate::error::CsError;
 use crate::input;
 use crate::output;
-use crate::store::{validate_name, delete_profile, read_current, clear_current};
+use crate::store::{delete_profile, read_current, clear_current};
 
 pub fn run(name: &str, force: bool, project: &Path) -> Result<(), CsError> {
     validate_name(name)?;

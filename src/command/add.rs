@@ -1,7 +1,8 @@
+use crate::cli::validate_name;
 use crate::error::CsError;
 use crate::input;
 use crate::output;
-use crate::store::{validate_name, save_profile, profile_path, derive_default_models, KEY_BASE_URL, KEY_API_KEY, KEY_MODEL};
+use crate::store::{save_profile, profile_path, derive_default_models, KEY_BASE_URL, KEY_API_KEY, KEY_MODEL};
 
 pub fn run(name: &str, force: bool) -> Result<(), CsError> {
     validate_name(name)?;

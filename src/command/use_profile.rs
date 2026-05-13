@@ -1,8 +1,9 @@
 use std::path::Path;
 
+use crate::cli::validate_name;
 use crate::error::CsError;
 use crate::output;
-use crate::store::{validate_name, read_profile, merge_env, write_current, read_settings_local, write_settings_local};
+use crate::store::{read_profile, merge_env, write_current, read_settings_local, write_settings_local};
 
 pub fn run(name: &str, project: &Path) -> Result<(), CsError> {
     validate_name(name)?;

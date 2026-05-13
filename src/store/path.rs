@@ -3,7 +3,7 @@ use std::env;
 
 use crate::error::{CsError, io_err};
 
-pub fn store_dir() -> PathBuf {
+pub(crate) fn store_dir() -> PathBuf {
     std::env::var("CLAUDE_SWITCH_DIR")
         .ok()
         .map(PathBuf::from)
@@ -14,7 +14,7 @@ pub fn store_dir() -> PathBuf {
         })
 }
 
-pub fn profiles_dir() -> PathBuf {
+pub(crate) fn profiles_dir() -> PathBuf {
     store_dir().join("profiles")
 }
 
@@ -22,12 +22,12 @@ pub fn profile_path(name: &str) -> PathBuf {
     profiles_dir().join(format!("{}.json", name))
 }
 
-pub fn project_current_path(project: &Path) -> PathBuf {
+pub(crate) fn project_current_path(project: &Path) -> PathBuf {
     let hash = simple_hash(project.to_string_lossy().as_ref());
     store_dir().join("projects").join(hash).join("current")
 }
 
-pub fn settings_local_path(project: &Path) -> PathBuf {
+pub(crate) fn settings_local_path(project: &Path) -> PathBuf {
     project.join(".claude").join("settings.local.json")
 }
 
@@ -45,7 +45,7 @@ pub fn find_project_dir() -> Result<PathBuf, CsError> {
     }
 }
 
-pub fn simple_hash(s: &str) -> String {
+pub(crate) fn simple_hash(s: &str) -> String {
     let mut hash: u64 = 0xcbf29ce484222325; // FNV offset basis
     for b in s.bytes() {
         hash ^= b as u64;

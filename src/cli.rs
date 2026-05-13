@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::error::CsError;
+
 #[derive(Parser)]
 #[command(name = "claude-switch")]
 #[command(about = "切换 Claude Code 项目配置")]
@@ -49,4 +51,11 @@ pub enum Commands {
         /// 配置名称
         name: String,
     },
+}
+
+pub fn validate_name(name: &str) -> Result<(), CsError> {
+    if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+        return Err(CsError::InvalidProfileName { name: name.into() });
+    }
+    Ok(())
 }

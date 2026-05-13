@@ -73,11 +73,11 @@ fn combined_output(stdout: &str, stderr: &str) -> String {
 
 #[test]
 fn test_validate_name() {
-    assert!(claude_switch::store::validate_name("work").is_ok());
-    assert!(claude_switch::store::validate_name("my-profile").is_ok());
-    assert!(claude_switch::store::validate_name("").is_err());
-    assert!(claude_switch::store::validate_name("has space").is_err());
-    assert!(claude_switch::store::validate_name("dot.name").is_err());
+    assert!(claude_switch::cli::validate_name("work").is_ok());
+    assert!(claude_switch::cli::validate_name("my-profile").is_ok());
+    assert!(claude_switch::cli::validate_name("").is_err());
+    assert!(claude_switch::cli::validate_name("has space").is_err());
+    assert!(claude_switch::cli::validate_name("dot.name").is_err());
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn test_save_and_read_profile() {
 #[test]
 fn test_save_profile_rejects_invalid_name() {
     let _store = setup_store();
-    assert!(claude_switch::store::validate_name("bad.name").is_err());
+    assert!(claude_switch::cli::validate_name("bad.name").is_err());
 }
 
 #[test]
