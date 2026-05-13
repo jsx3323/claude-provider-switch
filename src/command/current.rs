@@ -1,10 +1,11 @@
+use std::path::Path;
+
 use crate::error::CsError;
 use crate::output;
-use crate::profile::{find_project_dir, read_current};
+use crate::store::read_current;
 
-pub fn run() -> Result<(), CsError> {
-    let project = find_project_dir()?;
-    let current = read_current(&project)?;
+pub fn run(project: &Path) -> Result<(), CsError> {
+    let current = read_current(project)?;
 
     match current {
         Some(name) => output::success(&format!("Current profile: {}", name)),

@@ -1,12 +1,12 @@
-use colored::Colorize;
+use std::path::Path;
+
 use crate::error::CsError;
 use crate::output;
-use crate::profile::{find_project_dir, list_profiles, read_current};
+use crate::store::{list_profiles, read_current, profile_path};
 
-pub fn run() -> Result<(), CsError> {
-    let project = find_project_dir()?;
+pub fn run(project: &Path) -> Result<(), CsError> {
     let profiles = list_profiles()?;
-    let current = read_current(&project)?;
+    let current = read_current(project)?;
 
     if profiles.is_empty() {
         output::info("No profiles found. Use 'claude-switch add <name>' to create one.");
@@ -17,8 +17,8 @@ pub fn run() -> Result<(), CsError> {
 
     for name in &profiles {
         let is_active = current.as_ref() == Some(name);
-        if is_active && !crate::profile::profile_path(name).exists() {
-            println!("  {} {} {}", "*".green().bold(), name.bold(), "(active - missing!)".red());
+        if is_active && !profile_path(name).exists() {
+            println!("  * {} (active - missing!)", name);
         } else {
             output::list_item(name, is_active);
         }

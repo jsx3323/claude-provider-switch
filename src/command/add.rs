@@ -2,7 +2,7 @@ use std::io;
 
 use crate::error::CsError;
 use crate::output;
-use crate::profile::{validate_name, save_profile, profile_path, derive_default_models, KEY_BASE_URL, KEY_API_KEY, KEY_MODEL};
+use crate::store::{validate_name, save_profile, profile_path, derive_default_models, KEY_BASE_URL, KEY_API_KEY, KEY_MODEL};
 
 pub fn run(name: &str, force: bool) -> Result<(), CsError> {
     validate_name(name)?;

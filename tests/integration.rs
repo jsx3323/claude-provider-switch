@@ -73,24 +73,24 @@ fn combined_output(stdout: &str, stderr: &str) -> String {
 
 #[test]
 fn test_validate_name() {
-    assert!(claude_switch::profile::validate_name("work").is_ok());
-    assert!(claude_switch::profile::validate_name("my-profile").is_ok());
-    assert!(claude_switch::profile::validate_name("").is_err());
-    assert!(claude_switch::profile::validate_name("has space").is_err());
-    assert!(claude_switch::profile::validate_name("dot.name").is_err());
+    assert!(claude_switch::store::validate_name("work").is_ok());
+    assert!(claude_switch::store::validate_name("my-profile").is_ok());
+    assert!(claude_switch::store::validate_name("").is_err());
+    assert!(claude_switch::store::validate_name("has space").is_err());
+    assert!(claude_switch::store::validate_name("dot.name").is_err());
 }
 
 #[test]
 fn test_is_claude_env_key() {
-    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_BASE_URL"));
-    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_MODEL"));
-    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_API_KEY"));
-    assert!(!claude_switch::profile::is_claude_env_key("API_TIMEOUT_MS"));
+    assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_BASE_URL"));
+    assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_MODEL"));
+    assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_API_KEY"));
+    assert!(!claude_switch::store::is_claude_env_key("API_TIMEOUT_MS"));
 }
 
 #[test]
 fn test_derive_default_models() {
-    let defaults = claude_switch::profile::derive_default_models("glm-5.1");
+    let defaults = claude_switch::store::derive_default_models("glm-5.1");
     assert_eq!(defaults[0].0, "ANTHROPIC_SMALL_FAST_MODEL");
     assert_eq!(defaults[0].1, "glm-5.1");
     assert_eq!(defaults[3].0, "ANTHROPIC_DEFAULT_OPUS_MODEL");
@@ -104,29 +104,29 @@ fn test_derive_default_models() {
 fn test_save_and_read_profile() {
     let _store = setup_store();
     let env = serde_json::json!({"ANTHROPIC_BASE_URL": "https://a.com", "ANTHROPIC_MODEL": "x"});
-    claude_switch::profile::save_profile("test", &env).unwrap();
-    assert_eq!(claude_switch::profile::read_profile("test").unwrap(), env);
+    claude_switch::store::save_profile("test", &env).unwrap();
+    assert_eq!(claude_switch::store::read_profile("test").unwrap(), env);
 }
 
 #[test]
 fn test_save_profile_rejects_invalid_name() {
     let _store = setup_store();
-    assert!(claude_switch::profile::save_profile("bad.name", &serde_json::json!({})).is_err());
+    assert!(claude_switch::store::save_profile("bad.name", &serde_json::json!({})).is_err());
 }
 
 #[test]
 fn test_read_nonexistent_profile() {
     let _store = setup_store();
-    assert!(claude_switch::profile::read_profile("nonexistent").is_err());
+    assert!(claude_switch::store::read_profile("nonexistent").is_err());
 }
 
 #[test]
 fn test_list_profiles() {
     let _store = setup_store();
-    assert!(claude_switch::profile::list_profiles().unwrap().is_empty());
-    claude_switch::profile::save_profile("alpha", &serde_json::json!({})).unwrap();
-    claude_switch::profile::save_profile("beta", &serde_json::json!({})).unwrap();
-    assert_eq!(claude_switch::profile::list_profiles().unwrap(), vec!["alpha", "beta"]);
+    assert!(claude_switch::store::list_profiles().unwrap().is_empty());
+    claude_switch::store::save_profile("alpha", &serde_json::json!({})).unwrap();
+    claude_switch::store::save_profile("beta", &serde_json::json!({})).unwrap();
+    assert_eq!(claude_switch::store::list_profiles().unwrap(), vec!["alpha", "beta"]);
 }
 
 // ============================================================
@@ -139,7 +139,7 @@ fn test_use_clears_old_keys_and_writes_new() {
     let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old-model","ANTHROPIC_SMALL_FAST_MODEL":"old-model","API_TIMEOUT_MS":"3000","OTHER":"keep"}}"#);
 
     let new_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new-model","ANTHROPIC_DEFAULT_HAIKU_MODEL":"haiku"});
-    claude_switch::profile::merge_env_to_settings(dir.path(), &new_env).unwrap();
+    claude_switch::store::merge_env_to_settings(dir.path(), &new_env).unwrap();
 
     let settings = read_settings(dir.path());
     let env_obj = get_env_obj(&settings);
@@ -156,13 +156,13 @@ fn test_use_switch_back_and_forth() {
     let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"}}"#);
 
     let a_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"});
-    claude_switch::profile::save_profile("a", &a_env).unwrap();
+    claude_switch::store::save_profile("a", &a_env).unwrap();
 
     let b_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://b","ANTHROPIC_API_KEY":"sk-b","ANTHROPIC_MODEL":"b"});
-    claude_switch::profile::merge_env_to_settings(dir.path(), &b_env).unwrap();
+    claude_switch::store::merge_env_to_settings(dir.path(), &b_env).unwrap();
 
-    let a_profile = claude_switch::profile::read_profile("a").unwrap();
-    claude_switch::profile::merge_env_to_settings(dir.path(), &a_profile).unwrap();
+    let a_profile = claude_switch::store::read_profile("a").unwrap();
+    claude_switch::store::merge_env_to_settings(dir.path(), &a_profile).unwrap();
 
     let settings = read_settings(dir.path());
     let env_obj = get_env_obj(&settings);
@@ -173,7 +173,7 @@ fn test_use_switch_back_and_forth() {
 fn test_use_creates_env_when_missing() {
     let _store = setup_store();
     let dir = setup_project(r#"{"permissions":{"allow":["Bash"]}}"#);
-    claude_switch::profile::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    claude_switch::store::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
     let settings = read_settings(dir.path());
     assert!(settings.get("env").is_some());
     assert!(settings.get("permissions").is_some());
@@ -183,7 +183,7 @@ fn test_use_creates_env_when_missing() {
 fn test_use_with_empty_env() {
     let _store = setup_store();
     let dir = setup_project(r#"{"permissions":{"allow":["Bash"]},"env":{}}"#);
-    claude_switch::profile::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    claude_switch::store::merge_env_to_settings(dir.path(), &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
     let settings = read_settings(dir.path());
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.len(), 1);
@@ -196,33 +196,33 @@ fn test_use_with_empty_env() {
 #[test]
 fn test_delete_profile() {
     let _store = setup_store();
-    claude_switch::profile::save_profile("temp", &serde_json::json!({})).unwrap();
-    claude_switch::profile::delete_profile("temp").unwrap();
-    assert!(!claude_switch::profile::list_profiles().unwrap().contains(&"temp".to_string()));
+    claude_switch::store::save_profile("temp", &serde_json::json!({})).unwrap();
+    claude_switch::store::delete_profile("temp").unwrap();
+    assert!(!claude_switch::store::list_profiles().unwrap().contains(&"temp".to_string()));
 }
 
 #[test]
 fn test_delete_nonexistent() {
     let _store = setup_store();
-    assert!(claude_switch::profile::delete_profile("nonexistent").is_err());
+    assert!(claude_switch::store::delete_profile("nonexistent").is_err());
 }
 
 #[test]
 fn test_current_marker() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{}}"#);
-    assert!(claude_switch::profile::read_current(dir.path()).unwrap().is_none());
-    claude_switch::profile::write_current(dir.path(), "x").unwrap();
-    assert_eq!(claude_switch::profile::read_current(dir.path()).unwrap(), Some("x".to_string()));
-    claude_switch::profile::clear_current(dir.path()).unwrap();
-    assert!(claude_switch::profile::read_current(dir.path()).unwrap().is_none());
+    assert!(claude_switch::store::read_current(dir.path()).unwrap().is_none());
+    claude_switch::store::write_current(dir.path(), "x").unwrap();
+    assert_eq!(claude_switch::store::read_current(dir.path()).unwrap(), Some("x".to_string()));
+    claude_switch::store::clear_current(dir.path()).unwrap();
+    assert!(claude_switch::store::read_current(dir.path()).unwrap().is_none());
 }
 
 #[test]
 fn test_clear_current_nonexistent_ok() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{}}"#);
-    assert!(claude_switch::profile::clear_current(dir.path()).is_ok());
+    assert!(claude_switch::store::clear_current(dir.path()).is_ok());
 }
 
 // ============================================================
@@ -233,7 +233,7 @@ fn test_clear_current_nonexistent_ok() {
 fn test_read_current_env_filters_only_anthropic() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"glm","API_TIMEOUT_MS":"3000","OTHER":"keep"}}"#);
-    let env = claude_switch::profile::read_current_env(dir.path()).unwrap();
+    let env = claude_switch::store::read_current_env(dir.path()).unwrap();
     let obj = env.as_object().unwrap();
     assert_eq!(obj.len(), 1);
     assert!(obj.contains_key("ANTHROPIC_MODEL"));
@@ -243,7 +243,7 @@ fn test_read_current_env_filters_only_anthropic() {
 fn test_read_current_env_no_env_field() {
     let _store = setup_store();
     let dir = setup_project(r#"{"permissions":{}}"#);
-    assert_eq!(claude_switch::profile::read_current_env(dir.path()).unwrap(), serde_json::json!({}));
+    assert_eq!(claude_switch::store::read_current_env(dir.path()).unwrap(), serde_json::json!({}));
 }
 
 #[test]
@@ -251,8 +251,8 @@ fn test_diff_identical() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"x"}}"#);
     let env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"x"});
-    claude_switch::profile::save_profile("same", &env).unwrap();
-    assert_eq!(claude_switch::profile::read_current_env(dir.path()).unwrap(), env);
+    claude_switch::store::save_profile("same", &env).unwrap();
+    assert_eq!(claude_switch::store::read_current_env(dir.path()).unwrap(), env);
 }
 
 #[test]
@@ -260,10 +260,10 @@ fn test_diff_shows_changes() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_MODEL":"old"}}"#);
     let env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_MODEL":"new","ANTHROPIC_API_KEY":"sk"});
-    claude_switch::profile::save_profile("new", &env).unwrap();
+    claude_switch::store::save_profile("new", &env).unwrap();
 
-    let current = claude_switch::profile::read_current_env(dir.path()).unwrap();
-    let profile = claude_switch::profile::read_profile("new").unwrap();
+    let current = claude_switch::store::read_current_env(dir.path()).unwrap();
+    let profile = claude_switch::store::read_profile("new").unwrap();
     assert_ne!(current, profile);
     assert!(profile.as_object().unwrap().contains_key("ANTHROPIC_API_KEY"));
 }
@@ -283,7 +283,7 @@ fn test_cli_add_interactive_auto_derive() {
     let out = combined_output(&stdout, &stderr);
     assert!(out.contains("Created profile 'test-add'"));
 
-    let profile = claude_switch::profile::read_profile("test-add").unwrap();
+    let profile = claude_switch::store::read_profile("test-add").unwrap();
     let obj = profile.as_object().unwrap();
     assert_eq!(obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://api.anthropic.com");
     assert_eq!(obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-ant-test");
@@ -299,7 +299,7 @@ fn test_cli_add_with_custom_optional() {
     let (ok, _, stderr) = run_cli_stdin("add infini", input, dir.path());
     assert!(ok, "add failed: {}", stderr);
 
-    let profile = claude_switch::profile::read_profile("infini").unwrap();
+    let profile = claude_switch::store::read_profile("infini").unwrap();
     assert_eq!(profile.get("ANTHROPIC_SMALL_FAST_MODEL").unwrap(), "glm-mini");
     assert_eq!(profile.get("ANTHROPIC_DEFAULT_OPUS_MODEL").unwrap(), "glm-opus");
 }
@@ -330,7 +330,7 @@ fn test_cli_add_force_overwrite() {
     let out = combined_output(&stdout, &stderr);
     assert!(out.contains("Overwritten"));
 
-    let profile = claude_switch::profile::read_profile("overwrite-test").unwrap();
+    let profile = claude_switch::store::read_profile("overwrite-test").unwrap();
     assert_eq!(profile.get("ANTHROPIC_BASE_URL").unwrap(), "https://b.com");
 }
 
@@ -339,7 +339,7 @@ fn test_cli_use_and_current() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"}}"#);
 
-    claude_switch::profile::save_profile("test-use", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"})).unwrap();
+    claude_switch::store::save_profile("test-use", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"})).unwrap();
 
     let (ok, _stdout, stderr) = run_cli("use test-use", dir.path());
     assert!(ok, "use failed: {}", stderr);
@@ -353,8 +353,8 @@ fn test_cli_use_and_current() {
 fn test_cli_list() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
-    claude_switch::profile::save_profile("alpha", &serde_json::json!({})).unwrap();
-    claude_switch::profile::save_profile("beta", &serde_json::json!({})).unwrap();
+    claude_switch::store::save_profile("alpha", &serde_json::json!({})).unwrap();
+    claude_switch::store::save_profile("beta", &serde_json::json!({})).unwrap();
 
     let (ok, stdout, stderr) = run_cli("list", dir.path());
     assert!(ok, "list failed: {}", stderr);
@@ -376,17 +376,17 @@ fn test_cli_list_empty() {
 fn test_cli_delete() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
-    claude_switch::profile::save_profile("del-me", &serde_json::json!({})).unwrap();
+    claude_switch::store::save_profile("del-me", &serde_json::json!({})).unwrap();
     let (ok, _, _) = run_cli("delete del-me --force", dir.path());
     assert!(ok);
-    assert!(!claude_switch::profile::list_profiles().unwrap().contains(&"del-me".to_string()));
+    assert!(!claude_switch::store::list_profiles().unwrap().contains(&"del-me".to_string()));
 }
 
 #[test]
 fn test_cli_diff() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_MODEL":"old"}}"#);
-    claude_switch::profile::save_profile("new-profile", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_MODEL":"new"})).unwrap();
+    claude_switch::store::save_profile("new-profile", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_MODEL":"new"})).unwrap();
 
     let (ok, stdout, stderr) = run_cli("diff new-profile", dir.path());
     assert!(ok, "diff failed: {}", stderr);
@@ -414,13 +414,13 @@ fn test_full_workflow() {
     let project = dir.path();
 
     let a_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a","ANTHROPIC_SMALL_FAST_MODEL":"a"});
-    claude_switch::profile::save_profile("a", &a_env).unwrap();
+    claude_switch::store::save_profile("a", &a_env).unwrap();
 
     let b_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://b","ANTHROPIC_API_KEY":"sk-b","ANTHROPIC_MODEL":"b","ANTHROPIC_DEFAULT_OPUS_MODEL":"opus"});
-    claude_switch::profile::save_profile("b", &b_env).unwrap();
+    claude_switch::store::save_profile("b", &b_env).unwrap();
 
     // 切到 b
-    claude_switch::profile::merge_env_to_settings(project, &b_env).unwrap();
+    claude_switch::store::merge_env_to_settings(project, &b_env).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://b");
@@ -428,8 +428,8 @@ fn test_full_workflow() {
     assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");
 
     // 切回 a
-    let a_profile = claude_switch::profile::read_profile("a").unwrap();
-    claude_switch::profile::merge_env_to_settings(project, &a_profile).unwrap();
+    let a_profile = claude_switch::store::read_profile("a").unwrap();
+    claude_switch::store::merge_env_to_settings(project, &a_profile).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
