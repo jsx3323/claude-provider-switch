@@ -1,6 +1,5 @@
-use std::io;
-
 use crate::error::CsError;
+use crate::input;
 use crate::output;
 use crate::store::{validate_name, save_profile, profile_path, derive_default_models, KEY_BASE_URL, KEY_API_KEY, KEY_MODEL};
 
@@ -12,9 +11,9 @@ pub fn run(name: &str, force: bool) -> Result<(), CsError> {
         return Err(CsError::ProfileExists { name: name.into() });
     }
 
-    let base_url = prompt_required(KEY_BASE_URL)?;
-    let api_key = prompt_required(KEY_API_KEY)?;
-    let model = prompt_required(KEY_MODEL)?;
+    let base_url = input::prompt_required(KEY_BASE_URL)?;
+    let api_key = input::prompt_required(KEY_API_KEY)?;
+    let model = input::prompt_required(KEY_MODEL)?;
 
     let defaults = derive_default_models(&model);
     let mut env = serde_json::Map::new();
@@ -23,12 +22,12 @@ pub fn run(name: &str, force: bool) -> Result<(), CsError> {
     env.insert(KEY_MODEL.into(), serde_json::Value::String(model));
 
     for (key, default_val) in &defaults {
-        let input = prompt_optional(key, default_val)?;
-        if input.is_empty() {
+        let val = input::prompt_optional(key, default_val)?;
+        if val.is_empty() {
             env.insert(key.clone(), serde_json::Value::String(default_val.clone()));
             output::info(&format!("  → auto-derived: {}", default_val));
         } else {
-            env.insert(key.clone(), serde_json::Value::String(input));
+            env.insert(key.clone(), serde_json::Value::String(val));
         }
     }
 
@@ -40,25 +39,4 @@ pub fn run(name: &str, force: bool) -> Result<(), CsError> {
         output::success(&format!("Created profile '{}'", name));
     }
     Ok(())
-}
-
-fn prompt_required(field: &str) -> Result<String, CsError> {
-    loop {
-        eprintln!("{}: ", field);
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).map_err(|e| crate::error::io_err("stdin", e))?;
-        let value = input.trim().to_string();
-        if value.is_empty() {
-            output::error(&format!("{} is required", field));
-            continue;
-        }
-        return Ok(value);
-    }
-}
-
-fn prompt_optional(field: &str, default: &str) -> Result<String, CsError> {
-    eprintln!("{} (optional, default: {}): ", field, default);
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).map_err(|e| crate::error::io_err("stdin", e))?;
-    Ok(input.trim().to_string())
 }
