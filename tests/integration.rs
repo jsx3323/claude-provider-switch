@@ -434,8 +434,146 @@ fn test_cli_diff_nonexistent() {
 }
 
 // ============================================================
-// 完整端到端流程
+// 端到端行为验证
 // ============================================================
+
+#[test]
+fn test_cli_use_writes_settings_and_preserves_non_anthropic() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old","API_TIMEOUT_MS":"3000"}}"#);
+
+    claude_switch::store::save_profile("new", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new"})).unwrap();
+
+    let (ok, _, stderr) = run_cli("use new", dir.path());
+    assert!(ok, "use failed: {}", stderr);
+
+    // 验证 settings.local.json 实际写入
+    let settings = read_settings(dir.path());
+    let env_obj = get_env_obj(&settings);
+    assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
+    assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
+    assert_eq!(env_obj.get("ANTHROPIC_MODEL").unwrap(), "new");
+    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL")); // 旧 key 已清除
+    assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");   // 非 ANTHROPIC_* 保留
+    assert!(settings.get("permissions").is_some());                // permissions 保留
+}
+
+#[test]
+fn test_cli_use_switch_back_preserves_env() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"a","ANTHROPIC_SMALL_FAST_MODEL":"a","OTHER":"keep"}}"#);
+
+    claude_switch::store::save_profile("a", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"a"})).unwrap();
+    claude_switch::store::save_profile("b", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://b","ANTHROPIC_MODEL":"b"})).unwrap();
+
+    run_cli("use b", dir.path());
+    let settings = read_settings(dir.path());
+    assert_eq!(settings.get("env").unwrap().get("ANTHROPIC_BASE_URL").unwrap(), "https://b");
+    assert!(!settings.get("env").unwrap().as_object().unwrap().contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+    assert_eq!(settings.get("env").unwrap().get("OTHER").unwrap(), "keep");
+
+    run_cli("use a", dir.path());
+    let settings = read_settings(dir.path());
+    assert_eq!(settings.get("env").unwrap().get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
+    assert_eq!(settings.get("env").unwrap().get("ANTHROPIC_MODEL").unwrap(), "a");
+    assert_eq!(settings.get("env").unwrap().get("OTHER").unwrap(), "keep");
+}
+
+#[test]
+fn test_cli_list_shows_active_marker() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("alpha", &serde_json::json!({})).unwrap();
+    claude_switch::store::save_profile("beta", &serde_json::json!({})).unwrap();
+
+    // 无活跃 profile
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("alpha") && out.contains("beta"));
+    assert!(!out.contains("(active)"));
+
+    // use 后再 list
+    run_cli("use alpha", dir.path());
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("(active)"));
+}
+
+#[test]
+fn test_cli_diff_shows_additions_and_deletions() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_MODEL":"old"}}"#);
+
+    claude_switch::store::save_profile("new", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new"})).unwrap();
+
+    let (ok, stdout, stderr) = run_cli("diff new", dir.path());
+    assert!(ok, "diff failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    // 验证 diff 输出包含具体增删行
+    assert!(out.contains("-") && out.contains("+"));
+}
+
+#[test]
+fn test_cli_diff_identical_no_changes() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("same", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_MODEL":"x"})).unwrap();
+
+    let (ok, stdout, stderr) = run_cli("diff same", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("No differences"));
+}
+
+#[test]
+fn test_cli_delete_active_without_force_prompts() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("active", &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    run_cli("use active", dir.path());
+
+    // 不带 --force，回答 n 取消删除
+    let (ok, stdout, stderr) = run_cli_stdin("delete active", "n\n", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Cancelled"));
+    // profile 仍然存在
+    assert!(claude_switch::store::list_profiles().unwrap().contains(&"active".to_string()));
+}
+
+#[test]
+fn test_cli_delete_active_with_force_skips_prompt() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    claude_switch::store::save_profile("active", &serde_json::json!({})).unwrap();
+    run_cli("use active", dir.path());
+
+    let (ok, _, stderr) = run_cli("delete active --force", dir.path());
+    assert!(ok, "delete failed: {}", stderr);
+    assert!(!claude_switch::store::list_profiles().unwrap().contains(&"active".to_string()));
+}
+
+#[test]
+fn test_cli_add_empty_required_retries() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);
+
+    // 先留空 ANTHROPIC_BASE_URL，再输入有效值
+    let input = "\nhttps://a.com\nsk-x\nmodel\n\n\n\n\n";
+    let (ok, stdout, stderr) = run_cli_stdin("add retry-test", input, dir.path());
+    assert!(ok, "add with retry failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Created profile 'retry-test'"));
+
+    let profile = claude_switch::store::read_profile("retry-test").unwrap();
+    assert_eq!(profile.get("ANTHROPIC_BASE_URL").unwrap(), "https://a.com");
+}
 
 #[test]
 fn test_full_workflow() {
