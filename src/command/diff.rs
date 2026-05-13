@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use colored::Colorize;
 use crate::error::{CsError, json_err};
 use crate::output;
 use crate::store::{read_current_env, read_profile};
@@ -20,16 +19,15 @@ pub fn run(name: &str, project: &Path) -> Result<(), CsError> {
         return Ok(());
     }
 
-    println!("--- current env");
-    println!("+++ profile: {}", name);
+    output::diff_header("current env", &format!("profile: {}", name));
 
     let diff = TextDiff::from_lines(&current_json, &profile_json);
     for change in diff.iter_all_changes() {
         let line = change.to_string_lossy();
         match change.tag() {
-            ChangeTag::Delete => println!("-{}", line.red()),
-            ChangeTag::Insert => println!("+{}", line.green()),
-            ChangeTag::Equal => println!(" {}", line),
+            ChangeTag::Delete => output::diff_deleted(&line),
+            ChangeTag::Insert => output::diff_inserted(&line),
+            ChangeTag::Equal => output::diff_equal(&line),
         }
     }
     Ok(())

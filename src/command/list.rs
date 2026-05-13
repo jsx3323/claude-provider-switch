@@ -18,7 +18,7 @@ pub fn run(project: &Path) -> Result<(), CsError> {
     for name in &profiles {
         let is_active = current.as_ref() == Some(name);
         if is_active && !profile_path(name).exists() {
-            println!("  * {} (active - missing!)", name);
+            output::list_item_missing(name);
         } else {
             output::list_item(name, is_active);
         }

@@ -23,3 +23,24 @@ pub fn list_item(name: &str, is_active: bool) {
         println!("    {}", name);
     }
 }
+
+pub fn list_item_missing(name: &str) {
+    println!("  {} {} {}", "*".green().bold(), name.bold(), "(active - missing!)".red());
+}
+
+pub fn diff_header(current_label: &str, profile_label: &str) {
+    println!("--- {}", current_label);
+    println!("+++ {}", profile_label);
+}
+
+pub fn diff_deleted(line: &str) {
+    println!("-{}", line.red());
+}
+
+pub fn diff_inserted(line: &str) {
+    println!("+{}", line.green());
+}
+
+pub fn diff_equal(line: &str) {
+    println!(" {}", line);
+}
