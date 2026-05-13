@@ -17,11 +17,16 @@ pub fn prompt_required(field: &str) -> Result<String, CsError> {
     }
 }
 
-pub fn prompt_optional(field: &str, default: &str) -> Result<String, CsError> {
+pub fn prompt_optional(field: &str, default: &str) -> Result<Option<String>, CsError> {
     eprintln!("{} (optional, default: {}): ", field, default);
     let mut input = String::new();
     io::stdin().read_line(&mut input).map_err(|e| io_err("stdin", e))?;
-    Ok(input.trim().to_string())
+    let trimmed = input.trim().to_string();
+    if trimmed.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(trimmed))
+    }
 }
 
 pub fn prompt_confirm() -> Result<bool, CsError> {

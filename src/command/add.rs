@@ -23,12 +23,14 @@ pub fn run(name: &str, force: bool) -> Result<(), CsError> {
     env.insert(KEY_MODEL.into(), serde_json::Value::String(model));
 
     for (key, default_val) in &defaults {
-        let val = input::prompt_optional(key, default_val)?;
-        if val.is_empty() {
-            env.insert(key.clone(), serde_json::Value::String(default_val.clone()));
-            output::info(&format!("  → auto-derived: {}", default_val));
-        } else {
-            env.insert(key.clone(), serde_json::Value::String(val));
+        match input::prompt_optional(key, default_val)? {
+            None => {
+                env.insert(key.clone(), serde_json::Value::String(default_val.clone()));
+                output::info(&format!("  → auto-derived: {}", default_val));
+            }
+            Some(val) => {
+                env.insert(key.clone(), serde_json::Value::String(val));
+            }
         }
     }
 
