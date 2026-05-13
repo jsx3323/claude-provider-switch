@@ -81,11 +81,11 @@ fn test_validate_name() {
 }
 
 #[test]
-fn test_is_claute_env_key() {
-    assert!(claude_switch::profile::is_claute_env_key("ANTHROPIC_BASE_URL"));
-    assert!(claude_switch::profile::is_claute_env_key("ANTHROPIC_MODEL"));
-    assert!(claude_switch::profile::is_claute_env_key("ANTHROPIC_API_KEY"));
-    assert!(!claude_switch::profile::is_claute_env_key("API_TIMEOUT_MS"));
+fn test_is_claude_env_key() {
+    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_BASE_URL"));
+    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_MODEL"));
+    assert!(claude_switch::profile::is_claude_env_key("ANTHROPIC_API_KEY"));
+    assert!(!claude_switch::profile::is_claude_env_key("API_TIMEOUT_MS"));
 }
 
 #[test]

@@ -164,7 +164,7 @@ pub fn write_settings_local(project: &Path, content: &Value) -> Result<(), CsErr
     Ok(())
 }
 
-pub fn is_claute_env_key(key: &str) -> bool {
+pub fn is_claude_env_key(key: &str) -> bool {
     key.starts_with("ANTHROPIC_")
 }
 
@@ -188,7 +188,7 @@ pub fn merge_env_to_settings(project: &Path, env_values: &Value) -> Result<Vec<S
         .or_insert_with(|| Value::Object(serde_json::Map::new()));
     let env_obj = settings_env.as_object_mut().unwrap();
 
-    env_obj.retain(|k, _| !is_claute_env_key(k));
+    env_obj.retain(|k, _| !is_claude_env_key(k));
 
     let mut written = Vec::new();
     for (key, value) in profile_env {
@@ -206,7 +206,7 @@ pub fn read_current_env(project: &Path) -> Result<Value, CsError> {
     let env_obj = env.as_object().unwrap();
     let filtered: serde_json::Map<String, Value> = env_obj
         .iter()
-        .filter(|(k, _)| is_claute_env_key(k))
+        .filter(|(k, _)| is_claude_env_key(k))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     Ok(Value::Object(filtered))
