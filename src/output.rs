@@ -16,6 +16,10 @@ pub fn info(msg: &str) {
     println!("{}", msg);
 }
 
+pub fn removed(key: &str) {
+    println!("  - {} (removed)", key.yellow());
+}
+
 pub fn list_item(name: &str, is_active: bool) {
     if is_active {
         println!("  {} {} {}", "*".green().bold(), name.bold(), "(active)".green());

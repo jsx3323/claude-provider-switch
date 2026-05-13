@@ -1,8 +1,8 @@
 use serde_json::Value;
 use crate::error::CsError;
-use super::keys::is_claude_env_key;
+use super::keys::conflicting_keys;
 
-pub fn merge_env(mut settings: Value, env_values: &Value) -> Result<(Value, Vec<String>), CsError> {
+pub fn merge_env(mut settings: Value, env_values: &Value) -> Result<(Value, Vec<String>, Vec<String>), CsError> {
     let profile_env = env_values.as_object()
         .ok_or(CsError::MalformedJson { detail: "env_values must be a JSON object".into() })?;
 
@@ -14,7 +14,17 @@ pub fn merge_env(mut settings: Value, env_values: &Value) -> Result<(Value, Vec<
     let env_obj = settings_env.as_object_mut()
         .ok_or(CsError::MalformedJson { detail: "\"env\" field must be a JSON object".into() })?;
 
-    env_obj.retain(|k, _| !is_claude_env_key(k));
+    // 仅清除与 profile key 冲突的 key，不再 blanket 删除所有 ANTHROPIC_*
+    let to_remove = conflicting_keys(profile_env);
+    let mut removed = Vec::new();
+    env_obj.retain(|k, _| {
+        if to_remove.iter().any(|r| *r == k.as_str()) {
+            removed.push(k.clone());
+            false
+        } else {
+            true
+        }
+    });
 
     let mut written = Vec::new();
     for (key, value) in profile_env {
@@ -22,5 +32,5 @@ pub fn merge_env(mut settings: Value, env_values: &Value) -> Result<(Value, Vec<
         written.push(key.clone());
     }
 
-    Ok((settings, written))
+    Ok((settings, written, removed))
 }
