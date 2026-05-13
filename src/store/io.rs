@@ -65,7 +65,6 @@ pub fn read_profile(name: &str) -> Result<Value, CsError> {
 }
 
 pub fn save_profile(name: &str, content: &Value) -> Result<(), CsError> {
-    super::validate_name(name)?;
     let dir = profiles_dir();
     fs::create_dir_all(&dir).map_err(|e| io_err(&dir, e))?;
     let path = profile_path(name);

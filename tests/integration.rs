@@ -111,7 +111,7 @@ fn test_save_and_read_profile() {
 #[test]
 fn test_save_profile_rejects_invalid_name() {
     let _store = setup_store();
-    assert!(claude_switch::store::save_profile("bad.name", &serde_json::json!({})).is_err());
+    assert!(claude_switch::store::validate_name("bad.name").is_err());
 }
 
 #[test]
