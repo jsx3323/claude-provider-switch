@@ -1,10 +1,24 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fs;
 
 use serde_json::Value;
 use crate::error::{CsError, io_err, json_err, serialization_err};
 use super::path::{profiles_dir, profile_path, project_current_path, settings_local_path};
 use super::keys::is_claude_env_key;
+
+fn sibling_path(path: &Path, suffix: &str) -> PathBuf {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    path.with_file_name(format!("{}{}", file_name, suffix))
+}
+
+fn atomic_write(path: &Path, content: &str) -> Result<(), CsError> {
+    let dir = path.parent().unwrap();
+    fs::create_dir_all(dir).map_err(|e| io_err(dir, e))?;
+    let tmp = sibling_path(path, ".tmp");
+    fs::write(&tmp, content).map_err(|e| io_err(&tmp, e))?;
+    fs::rename(&tmp, path).map_err(|e| io_err(path, e))?;
+    Ok(())
+}
 
 pub fn list_profiles() -> Result<Vec<String>, CsError> {
     let dir = profiles_dir();
@@ -36,13 +50,7 @@ pub fn read_current(project: &Path) -> Result<Option<String>, CsError> {
 }
 
 pub fn write_current(project: &Path, name: &str) -> Result<(), CsError> {
-    let path = project_current_path(project);
-    let dir = path.parent().unwrap();
-    fs::create_dir_all(dir).map_err(|e| io_err(dir, e))?;
-    let tmp = path.with_extension("tmp");
-    fs::write(&tmp, name).map_err(|e| io_err(&tmp, e))?;
-    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
-    Ok(())
+    atomic_write(&project_current_path(project), name)
 }
 
 pub fn clear_current(project: &Path) -> Result<(), CsError> {
@@ -72,10 +80,7 @@ pub fn save_profile(name: &str, content: &Value) -> Result<(), CsError> {
     fs::create_dir_all(&dir).map_err(|e| io_err(&dir, e))?;
     let path = profile_path(name);
     let json = serde_json::to_string_pretty(content).map_err(|e| serialization_err(&path.display().to_string(), e))?;
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, &json).map_err(|e| io_err(&tmp, e))?;
-    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
-    Ok(())
+    atomic_write(&path, &json)
 }
 
 pub fn delete_profile(name: &str) -> Result<(), CsError> {
@@ -103,21 +108,17 @@ pub fn read_settings_local(project: &Path) -> Result<Value, CsError> {
 
 pub fn write_settings_local(project: &Path, content: &Value) -> Result<(), CsError> {
     let path = settings_local_path(project);
-    let dir = path.parent().unwrap();
-    fs::create_dir_all(dir).map_err(|e| io_err(dir, e))?;
 
-    // 备份已有文件
-    if path.exists() {
-        let bak = path.with_extension("json.bak");
-        fs::copy(&path, &bak).map_err(|e| io_err(&bak, e))?;
+    // 先备份，再序列化，避免序列化后备份失败浪费
+    let bak = sibling_path(&path, ".bak");
+    match fs::copy(&path, &bak) {
+        Ok(_) => {},
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {},
+        Err(e) => return Err(io_err(&bak, e)),
     }
 
-    // 原子写入：写临时文件 → rename
     let json = serde_json::to_string_pretty(content).map_err(|e| serialization_err(&path.display().to_string(), e))?;
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, &json).map_err(|e| io_err(&tmp, e))?;
-    fs::rename(&tmp, &path).map_err(|e| io_err(&path, e))?;
-    Ok(())
+    atomic_write(&path, &json)
 }
 
 pub fn read_current_env(project: &Path) -> Result<Value, CsError> {
