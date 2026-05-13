@@ -21,10 +21,9 @@ pub fn run(project: &Path) -> Result<(), CsError> {
     }
 
     // 活跃 profile 的文件被手动删除
-    if let Some(active) = &current {
-        if !profiles.contains(active) {
+    if let Some(active) = &current
+        && !profiles.contains(active) {
             output::list_item_missing(active);
-        }
     }
 
     let active_count = if current.is_some() { 1 } else { 0 };

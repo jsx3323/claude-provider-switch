@@ -10,7 +10,7 @@ pub fn run(name: &str, force: bool, project: &Path) -> Result<(), CsError> {
     validate_name(name)?;
     let current = read_current(project)?;
 
-    let is_active = current.as_ref() == Some(&name.to_string());
+    let is_active = current.as_deref() == Some(name);
     if is_active && !force {
         output::info(&format!("Profile '{}' is currently active.", name));
         output::info("Deleting will remove the profile but leave settings.local.json unchanged.");

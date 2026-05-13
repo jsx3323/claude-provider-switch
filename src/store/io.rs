@@ -8,11 +8,12 @@ use super::keys::is_claude_env_key;
 
 pub fn list_profiles() -> Result<Vec<String>, CsError> {
     let dir = profiles_dir();
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
     let mut names = Vec::new();
-    let entries = fs::read_dir(&dir).map_err(|e| io_err(&dir, e))?;
+    let entries = match fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(names),
+        Err(e) => return Err(io_err(&dir, e)),
+    };
     for entry in entries {
         let entry = entry.map_err(|e| io_err(&dir, e))?;
         let path = entry.path();
