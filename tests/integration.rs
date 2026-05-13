@@ -846,3 +846,27 @@ fn test_atomic_write_no_residual_tmp() {
     // 临时文件不应残留
     assert!(!dir.path().join(".claude/settings.local.json.tmp").exists());
 }
+
+#[test]
+fn test_write_settings_backup_overwrites_on_successive_use() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{"ANTHROPIC_BASE_URL":"https://original","ANTHROPIC_MODEL":"original"}}"#);
+
+    claude_switch::store::save_profile("a", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://a", "ANTHROPIC_MODEL": "a"
+    })).unwrap();
+    claude_switch::store::save_profile("b", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://b", "ANTHROPIC_MODEL": "b"
+    })).unwrap();
+
+    // 第一次 use：备份应为原始内容
+    run_cli("use a", dir.path());
+    let bak_path = dir.path().join(".claude/settings.local.json.bak");
+    let bak1: serde_json::Value = serde_json::from_str(&fs::read_to_string(&bak_path).unwrap()).unwrap();
+    assert_eq!(bak1.get("env").unwrap().get("ANTHROPIC_BASE_URL").unwrap(), "https://original");
+
+    // 第二次 use：备份应为 use a 后的内容，不是原始内容
+    run_cli("use b", dir.path());
+    let bak2: serde_json::Value = serde_json::from_str(&fs::read_to_string(&bak_path).unwrap()).unwrap();
+    assert_eq!(bak2.get("env").unwrap().get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
+}
