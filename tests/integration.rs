@@ -619,9 +619,35 @@ fn test_full_workflow() {
 // ============================================================
 
 #[test]
+fn test_cli_use_creates_settings_in_brand_new_project() {
+    let _store = setup_store();
+    // 完全新项目：连 .claude 目录都不存在
+    let dir = tempfile::tempdir().unwrap();
+    assert!(!dir.path().join(".claude").exists());
+
+    claude_switch::store::save_profile("brandnew", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_API_KEY": "sk-new", "ANTHROPIC_MODEL": "new"
+    })).unwrap();
+
+    let (ok, stdout, stderr) = run_cli("use brandnew", dir.path());
+    assert!(ok, "use failed: {}", stderr);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("Switched to profile 'brandnew'"));
+
+    // 应自动创建 .claude 目录和 settings.local.json，并写入环境变量
+    assert!(dir.path().join(".claude/settings.local.json").exists());
+    let settings = read_settings(dir.path());
+    assert!(settings.get("permissions").is_some());
+    let env_obj = get_env_obj(&settings);
+    assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
+    assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
+    assert_eq!(env_obj.get("ANTHROPIC_MODEL").unwrap(), "new");
+}
+
+#[test]
 fn test_cli_use_creates_settings_when_missing() {
     let _store = setup_store();
-    // 项目没有 settings.local.json，只有 .claude 目录
+    // 项目有 .claude 目录但无 settings.local.json
     let dir = setup_project_no_settings();
     assert!(!dir.path().join(".claude/settings.local.json").exists());
 
@@ -634,14 +660,12 @@ fn test_cli_use_creates_settings_when_missing() {
     let out = combined_output(&stdout, &stderr);
     assert!(out.contains("Switched to profile 'newproj'"));
 
-    // use 命令应自动创建 settings.local.json（含 permissions 和 env）
-    let settings_path = dir.path().join(".claude/settings.local.json");
-    assert!(settings_path.exists());
     let settings = read_settings(dir.path());
     assert!(settings.get("permissions").is_some());
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
+    assert_eq!(env_obj.get("ANTHROPIC_MODEL").unwrap(), "new");
 }
 
 #[test]
