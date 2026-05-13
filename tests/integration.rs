@@ -91,6 +91,7 @@ fn test_is_claude_env_key() {
     assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_BASE_URL"));
     assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_MODEL"));
     assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_API_KEY"));
+    assert!(claude_switch::store::is_claude_env_key("ANTHROPIC_AUTH_TOKEN"));
     assert!(!claude_switch::store::is_claude_env_key("API_TIMEOUT_MS"));
 }
 
@@ -143,11 +144,11 @@ fn test_list_profiles() {
 fn test_merge_clears_old_keys_and_writes_new() {
     let settings = serde_json::json!({"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old-model","ANTHROPIC_SMALL_FAST_MODEL":"old-model","API_TIMEOUT_MS":"3000","OTHER":"keep"}});
     let new_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new-model","ANTHROPIC_DEFAULT_HAIKU_MODEL":"haiku"});
-    let (merged, _changed) = claude_switch::store::merge_env(settings, &new_env).unwrap();
+    let (merged, _changed, _removed) = claude_switch::store::merge_env(settings, &new_env).unwrap();
     let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
-    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+    assert_eq!(env_obj.get("ANTHROPIC_SMALL_FAST_MODEL").unwrap(), "old-model"); // 保留，不删除
     assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");
     assert!(merged.get("permissions").is_some());
 }
@@ -158,8 +159,8 @@ fn test_merge_switch_back_and_forth() {
     let b_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://b","ANTHROPIC_API_KEY":"sk-b","ANTHROPIC_MODEL":"b"});
     let settings = serde_json::json!({"env":{"ANTHROPIC_BASE_URL":"https://a","ANTHROPIC_API_KEY":"sk-a","ANTHROPIC_MODEL":"a"}});
 
-    let (merged, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
-    let (merged, _) = claude_switch::store::merge_env(merged, &a_env).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(merged, &a_env).unwrap();
     let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
 }
@@ -167,7 +168,7 @@ fn test_merge_switch_back_and_forth() {
 #[test]
 fn test_merge_creates_env_when_missing() {
     let settings = serde_json::json!({"permissions":{"allow":["Bash"]}});
-    let (merged, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
     assert!(merged.get("env").is_some());
     assert!(merged.get("permissions").is_some());
 }
@@ -175,7 +176,7 @@ fn test_merge_creates_env_when_missing() {
 #[test]
 fn test_merge_with_empty_env() {
     let settings = serde_json::json!({"permissions":{"allow":["Bash"]},"env":{}});
-    let (merged, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"})).unwrap();
     let env_obj = merged.get("env").unwrap().as_object().unwrap();
     assert_eq!(env_obj.len(), 1);
 }
@@ -192,6 +193,42 @@ fn test_merge_malformed_settings_env() {
     let settings = serde_json::json!({"env":"not an object"});
     let result = claude_switch::store::merge_env(settings, &serde_json::json!({"ANTHROPIC_MODEL":"x"}));
     assert!(result.is_err());
+}
+
+#[test]
+fn test_merge_removes_auth_token_when_api_key_set() {
+    // settings 有 AUTH_TOKEN，profile 有 API_KEY → AUTH_TOKEN 被清除
+    let settings = serde_json::json!({"env":{"ANTHROPIC_AUTH_TOKEN":"tok-old","ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_MODEL":"old"}});
+    let profile_env = serde_json::json!({"ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_MODEL":"new"});
+    let (merged, written, removed) = claude_switch::store::merge_env(settings, &profile_env).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
+    assert!(!env_obj.contains_key("ANTHROPIC_AUTH_TOKEN"));
+    assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
+    assert!(removed.contains(&"ANTHROPIC_AUTH_TOKEN".to_string()));
+    assert!(written.contains(&"ANTHROPIC_API_KEY".to_string()));
+}
+
+#[test]
+fn test_merge_preserves_auth_token_when_no_auth_key() {
+    // profile 无 API_KEY/AUTH_TOKEN → AUTH_TOKEN 保留
+    let settings = serde_json::json!({"env":{"ANTHROPIC_AUTH_TOKEN":"tok-keep","ANTHROPIC_BASE_URL":"https://old","OTHER":"keep"}});
+    let profile_env = serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_MODEL":"new"});
+    let (merged, _, removed) = claude_switch::store::merge_env(settings, &profile_env).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
+    assert_eq!(env_obj.get("ANTHROPIC_AUTH_TOKEN").unwrap(), "tok-keep");
+    assert!(removed.is_empty());
+}
+
+#[test]
+fn test_merge_removes_api_key_when_auth_token_set() {
+    // 反向：profile 有 AUTH_TOKEN，settings 有 API_KEY → API_KEY 被清除
+    let settings = serde_json::json!({"env":{"ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_BASE_URL":"https://old"}});
+    let profile_env = serde_json::json!({"ANTHROPIC_AUTH_TOKEN":"tok-new","ANTHROPIC_BASE_URL":"https://new"});
+    let (merged, _, removed) = claude_switch::store::merge_env(settings, &profile_env).unwrap();
+    let env_obj = merged.get("env").unwrap().as_object().unwrap();
+    assert!(!env_obj.contains_key("ANTHROPIC_API_KEY"));
+    assert_eq!(env_obj.get("ANTHROPIC_AUTH_TOKEN").unwrap(), "tok-new");
+    assert!(removed.contains(&"ANTHROPIC_API_KEY".to_string()));
 }
 
 // ============================================================
@@ -446,7 +483,7 @@ fn test_cli_diff_nonexistent() {
 #[test]
 fn test_cli_use_writes_settings_and_preserves_non_anthropic() {
     let _store = setup_store();
-    let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old","API_TIMEOUT_MS":"3000"}}"#);
+    let dir = setup_project(r#"{"permissions":{"allow":["Bash(ls)"]},"env":{"ANTHROPIC_BASE_URL":"https://old","ANTHROPIC_API_KEY":"sk-old","ANTHROPIC_MODEL":"old","ANTHROPIC_SMALL_FAST_MODEL":"old-fast","API_TIMEOUT_MS":"3000"}}"#);
 
     claude_switch::store::save_profile("new", &serde_json::json!({"ANTHROPIC_BASE_URL":"https://new","ANTHROPIC_API_KEY":"sk-new","ANTHROPIC_MODEL":"new"})).unwrap();
 
@@ -459,7 +496,7 @@ fn test_cli_use_writes_settings_and_preserves_non_anthropic() {
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
     assert_eq!(env_obj.get("ANTHROPIC_MODEL").unwrap(), "new");
-    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL")); // 旧 key 已清除
+    assert_eq!(env_obj.get("ANTHROPIC_SMALL_FAST_MODEL").unwrap(), "old-fast"); // 不在冲突组，保留
     assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");   // 非 ANTHROPIC_* 保留
     assert!(settings.get("permissions").is_some());                // permissions 保留
 }
@@ -475,7 +512,7 @@ fn test_cli_use_switch_back_preserves_env() {
     run_cli("use b", dir.path());
     let settings = read_settings(dir.path());
     assert_eq!(settings.get("env").unwrap().get("ANTHROPIC_BASE_URL").unwrap(), "https://b");
-    assert!(!settings.get("env").unwrap().as_object().unwrap().contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+    assert_eq!(settings.get("env").unwrap().get("ANTHROPIC_SMALL_FAST_MODEL").unwrap(), "a"); // 保留
     assert_eq!(settings.get("env").unwrap().get("OTHER").unwrap(), "keep");
 
     run_cli("use a", dir.path());
@@ -595,23 +632,23 @@ fn test_full_workflow() {
 
     // 切到 b
     let settings = claude_switch::store::read_settings_local(project).unwrap();
-    let (merged, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(settings, &b_env).unwrap();
     claude_switch::store::write_settings_local(project, &merged).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://b");
-    assert!(!env_obj.contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+    assert_eq!(env_obj.get("ANTHROPIC_SMALL_FAST_MODEL").unwrap(), "a"); // 保留，不在冲突组
     assert_eq!(env_obj.get("API_TIMEOUT_MS").unwrap(), "3000");
 
     // 切回 a
     let a_profile = claude_switch::store::read_profile("a").unwrap();
     let settings = claude_switch::store::read_settings_local(project).unwrap();
-    let (merged, _) = claude_switch::store::merge_env(settings, &a_profile).unwrap();
+    let (merged, _, _) = claude_switch::store::merge_env(settings, &a_profile).unwrap();
     claude_switch::store::write_settings_local(project, &merged).unwrap();
     let settings = read_settings(project);
     let env_obj = get_env_obj(&settings);
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://a");
-    assert!(!env_obj.contains_key("ANTHROPIC_DEFAULT_OPUS_MODEL"));
+    assert_eq!(env_obj.get("ANTHROPIC_DEFAULT_OPUS_MODEL").unwrap(), "opus"); // 保留
 }
 
 // ============================================================
