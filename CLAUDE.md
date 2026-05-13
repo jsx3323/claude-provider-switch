@@ -6,27 +6,27 @@ Rust CLI 工具，切换 Claude Code 的 API 连接配置。
 
 ```
 src/
-  cli.rs          — clap 命令定义（List/Use/Add/Current/Delete/Diff）
+  cli.rs          — clap 命令定义 + validate_name
   main.rs         — 命令分发（find_project_dir 集中调用）+ 错误处理
   lib.rs          — 模块导出
-  error.rs        — CsError 枚举（exit_code/hint 方法）+ io_err/json_err
-  input.rs        — 交互式输入（prompt_required/prompt_optional/prompt_confirm）
+  error.rs        — CsError 枚举（9 变体）+ io_err/json_err/serialization_err
+  input.rs        — 交互式输入（prompt_required/prompt_optional→Option/prompt_confirm）
   output.rs       — 终端彩色输出（含 diff 渲染和 list 缺失状态）
   store/
-    mod.rs        — validate_name + 子模块 re-export
+    mod.rs        — 显式 re-export（不含 validate_name）
     keys.rs       — KEY_* 常量（7 个）+ is_claude_env_key + derive_default_models
-    path.rs       — 路径构造 + find_project_dir + simple_hash
-    io.rs         — 文件 CRUD（profile/current/settings 读写）
-    merge.rs      — merge_env_to_settings + read_current_env
+    path.rs       — 路径构造 + find_project_dir + simple_hash（pub(crate）内部函数）
+    io.rs         — 文件 CRUD（profile/current/settings 读写）+ read_current_env
+    merge.rs      — merge_env 纯函数（不读写文件）
   command/
     add.rs        — 交互式创建 profile
-    use_profile.rs — 切换配置（merge_env + write_current）
+    use_profile.rs — 切换配置（IO 编排：read→merge→write）
     list.rs       — 列出 profiles + 活跃标记
     current.rs    — 显示当前 profile
     delete.rs     — 删除 profile（活跃时需确认）
     diff.rs       — 当前 env 与 profile 的文本 diff
 tests/
-  integration.rs  — 单元测试 + CLI 子进程测试
+  integration.rs  — 单元/纯函数测试 + CLI 子进程测试 + 错误路径测试
 ```
 
 ## 编码约定
@@ -35,9 +35,13 @@ tests/
 - 文件操作 TOCTOU-free：直接操作 + `match` NotFound，不先 `exists()` 再操作
 - 注释只写非显而易见的 WHY，不写 WHAT
 - 错误用 CsError 枚举 + exit_code/hint，不 println 后 exit
-- 命令模块签名：`pub fn run(..., project: &Path) -> Result<(), CsError>`（add 除外，不需要 project）
+- 命令模块签名：`pub fn run(..., project: &Path) -> Result<(), CsError>`（add 除外）
 - `colored` 仅在 output.rs 中导入，其他模块通过 output 函数使用
 - 交互式输入通过 input.rs，不直接调用 stdin
+- 序列化内存 Value 用 `serialization_err`，解析文件 JSON 用 `json_err`
+- validate_name 在 cli.rs（命令层关注点），不在 store
+- merge_env 是纯函数（不读写文件），命令层负责 IO 编排
+- store 公共 API 通过 mod.rs 显式 re-export，内部函数 pub(crate)
 
 ## 存储
 
@@ -45,6 +49,7 @@ tests/
 - Current marker: `~/.claude-switch/projects/<fnv1a-hash>/current`
 - Settings: 项目 `.claude/settings.local.json` 的 `env` 字段
 - `CLAUDE_SWITCH_DIR` 环境变量可覆盖根目录
+- 跨平台 home 目录通过 `dirs` crate
 
 ## use 行为
 
