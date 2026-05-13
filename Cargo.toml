@@ -1,0 +1,20 @@
+[package]
+name = "claude-switch"
+version = "0.1.0"
+edition = "2024"
+description = "CLI tool to switch Claude Code API connection profiles"
+license = "MIT"
+repository = "https://github.com/jshaoxiong/claude-switch"
+categories = ["command-line-utilities"]
+keywords = ["claude", "cli", "profile", "switch"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+colored = "3"
+similar = "2"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
