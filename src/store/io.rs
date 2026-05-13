@@ -15,11 +15,10 @@ pub fn list_profiles() -> Result<Vec<String>, CsError> {
     for entry in entries {
         let entry = entry.map_err(|e| io_err(&dir, e))?;
         let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "json") {
-            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+        if path.extension().is_some_and(|ext| ext == "json")
+            && let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
                 names.push(name.to_string());
             }
-        }
     }
     names.sort();
     Ok(names)
