@@ -1,9 +1,9 @@
 use clap::Parser;
-use claude_switch::cli::{Cli, Commands};
-use claude_switch::command;
-use claude_switch::error::CsError;
-use claude_switch::output;
-use claude_switch::store;
+use claude_provider_switch::cli::{Cli, Commands};
+use claude_provider_switch::command;
+use claude_provider_switch::error::CsError;
+use claude_provider_switch::output;
+use claude_provider_switch::store;
 
 fn main() {
     let cli = Cli::parse();

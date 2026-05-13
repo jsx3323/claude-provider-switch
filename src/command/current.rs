@@ -9,7 +9,7 @@ pub fn run(project: &Path) -> Result<(), CsError> {
 
     match current {
         Some(name) => output::success(&format!("Current profile: {}", name)),
-        None => output::info("No active profile (settings.local.json is not managed by claude-switch)"),
+        None => output::info("No active profile (settings.local.json is not managed by claude-provider-switch)"),
     }
     Ok(())
 }

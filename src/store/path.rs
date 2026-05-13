@@ -4,13 +4,13 @@ use std::env;
 use crate::error::{CsError, io_err};
 
 pub(crate) fn store_dir() -> PathBuf {
-    std::env::var("CLAUDE_SWITCH_DIR")
+    std::env::var("CLAUDE_PROVIDER_SWITCH_DIR")
         .ok()
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("/"))
-                .join(".claude-switch")
+                .join(".claude-provider-switch")
         })
 }
 

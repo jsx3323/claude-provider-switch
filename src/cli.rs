@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use crate::error::CsError;
 
 #[derive(Parser)]
-#[command(name = "claude-switch")]
+#[command(name = "claude-provider-switch")]
 #[command(about = "切换 Claude Code 项目配置")]
 #[command(version)]
 pub struct Cli {

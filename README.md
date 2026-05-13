@@ -1,4 +1,4 @@
-# claude-switch
+# claude-provider-switch
 
 CLI 工具，切换 Claude Code 的 API 连接配置。
 
@@ -7,14 +7,14 @@ CLI 工具，切换 Claude Code 的 API 连接配置。
 ## 安装
 
 ```bash
-cargo install claude-switch
+cargo install claude-provider-switch
 ```
 
 或从源码构建：
 
 ```bash
-git clone https://github.com/jsx3323/claude-switch.git
-cd claude-switch
+git clone https://github.com/jsx3323/claude-provider-switch.git
+cd claude-provider-switch
 cargo build --release
 ```
 
@@ -23,7 +23,7 @@ cargo build --release
 ### 添加配置
 
 ```bash
-claude-switch add work
+claude-provider-switch add work
 ```
 
 交互式输入 `ANTHROPIC_BASE_URL`、`ANTHROPIC_API_KEY`、`ANTHROPIC_MODEL`，可选自定义四个子模型 key。
@@ -31,7 +31,7 @@ claude-switch add work
 ### 切换配置
 
 ```bash
-claude-switch use work
+claude-provider-switch use work
 ```
 
 写入项目的 `.claude/settings.local.json` `env` 字段，仅修改 `ANTHROPIC_*` 相关变量，不影响 `permissions` 和其他非 ANTHROPIC key。
@@ -47,24 +47,24 @@ Claude Code 支持两种认证方式，它们是互斥的：
 
 **冲突处理规则**：`use` 命令不会删除所有 `ANTHROPIC_*` 变量，只删除与当前配置冲突的 key。如果 profile 包含 `ANTHROPIC_API_KEY`，则 settings 中已有的 `ANTHROPIC_AUTH_TOKEN` 被清除；如果 profile 包含 `ANTHROPIC_AUTH_TOKEN`，则已有的 `ANTHROPIC_API_KEY` 被清除。其他 `ANTHROPIC_*` 变量（如 `MODEL`、`BASE_URL`）不受影响。
 
-**常见场景**：你通过 Claude Code 内置登录（`claude login`）生成了 `AUTH_TOKEN`，之后想切换到一个自定义 API 代理（需要 `API_KEY`）。`claude-switch use` 会自动清除 `AUTH_TOKEN`，避免两种认证方式同时存在导致冲突。
+**常见场景**：你通过 Claude Code 内置登录（`claude login`）生成了 `AUTH_TOKEN`，之后想切换到一个自定义 API 代理（需要 `API_KEY`）。`claude-provider-switch use` 会自动清除 `AUTH_TOKEN`，避免两种认证方式同时存在导致冲突。
 
 ### 查看当前配置
 
 ```bash
-claude-switch current
+claude-provider-switch current
 ```
 
 ### 列出所有配置
 
 ```bash
-claude-switch list
+claude-provider-switch list
 ```
 
 ### 查看差异
 
 ```bash
-claude-switch diff staging
+claude-provider-switch diff staging
 ```
 
 对比当前环境变量与指定配置的文本 diff。
@@ -72,7 +72,7 @@ claude-switch diff staging
 ### 删除配置
 
 ```bash
-claude-switch delete old-config --force
+claude-provider-switch delete old-config --force
 ```
 
 删除活跃配置时默认提示确认，`--force` 跳过。
@@ -81,11 +81,11 @@ claude-switch delete old-config --force
 
 | 数据 | 位置 |
 |---|---|
-| Profile | `~/.claude-switch/profiles/<name>.json` |
-| 当前标记 | `~/.claude-switch/projects/<hash>/current` |
+| Profile | `~/.claude-provider-switch/profiles/<name>.json` |
+| 当前标记 | `~/.claude-provider-switch/projects/<hash>/current` |
 | 项目配置 | `<project>/.claude/settings.local.json` 的 `env` 字段 |
 
-`CLAUDE_SWITCH_DIR` 环境变量可覆盖根目录。
+`CLAUDE_PROVIDER_SWITCH_DIR` 环境变量可覆盖根目录。
 
 ## 命令别名
 
