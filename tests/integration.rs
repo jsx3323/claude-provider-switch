@@ -92,6 +92,8 @@ fn test_is_claude_env_key() {
     assert!(claude_provider_switch::store::is_claude_env_key("ANTHROPIC_MODEL"));
     assert!(claude_provider_switch::store::is_claude_env_key("ANTHROPIC_API_KEY"));
     assert!(claude_provider_switch::store::is_claude_env_key("ANTHROPIC_AUTH_TOKEN"));
+    assert!(claude_provider_switch::store::is_claude_env_key("CLAUDE_CODE_SUBAGENT_MODEL"));
+    assert!(claude_provider_switch::store::is_claude_env_key("CLAUDE_CODE_EFFORT_LEVEL"));
     assert!(!claude_provider_switch::store::is_claude_env_key("API_TIMEOUT_MS"));
 }
 

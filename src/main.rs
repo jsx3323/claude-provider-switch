@@ -42,5 +42,6 @@ fn run(cli: Cli) -> Result<(), CsError> {
             let project = store::find_project_dir()?;
             command::diff::run(&name, &project)
         }
+        Commands::Edit { name } => command::edit::run(&name),
     }
 }

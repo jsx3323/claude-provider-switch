@@ -17,6 +17,19 @@ pub fn prompt_required(field: &str) -> Result<String, CsError> {
     }
 }
 
+/// 显示默认值，空输入保留默认值，否则使用用户输入
+pub fn prompt_with_default(field: &str, default: &str) -> Result<String, CsError> {
+    eprintln!("{} (default: {}): ", field, default);
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).map_err(|e| io_err("stdin", e))?;
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        Ok(default.to_string())
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
 pub fn prompt_optional(field: &str, default: &str) -> Result<Option<String>, CsError> {
     eprintln!("{} (optional, default: {}): ", field, default);
     let mut input = String::new();

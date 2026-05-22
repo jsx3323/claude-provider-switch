@@ -6,6 +6,11 @@ pub const KEY_SMALL_FAST_MODEL: &str = "ANTHROPIC_SMALL_FAST_MODEL";
 pub const KEY_DEFAULT_HAIKU: &str = "ANTHROPIC_DEFAULT_HAIKU_MODEL";
 pub const KEY_DEFAULT_SONNET: &str = "ANTHROPIC_DEFAULT_SONNET_MODEL";
 pub const KEY_DEFAULT_OPUS: &str = "ANTHROPIC_DEFAULT_OPUS_MODEL";
+pub const KEY_SUBAGENT_MODEL: &str = "CLAUDE_CODE_SUBAGENT_MODEL";
+pub const KEY_EFFORT_LEVEL: &str = "CLAUDE_CODE_EFFORT_LEVEL";
+
+/// 所有需要被 profile 管理的 key 前缀
+const MANAGED_PREFIXES: &[&str] = &["ANTHROPIC_", "CLAUDE_CODE_"];
 
 /// 互斥 key 组：组内任一 key 出现在 profile 时，settings 中组内其他 key 应被清除
 pub const CONFLICT_GROUPS: &[&[&str]] = &[
@@ -13,7 +18,7 @@ pub const CONFLICT_GROUPS: &[&[&str]] = &[
 ];
 
 pub fn is_claude_env_key(key: &str) -> bool {
-    key.starts_with("ANTHROPIC_")
+    MANAGED_PREFIXES.iter().any(|prefix| key.starts_with(prefix))
 }
 
 /// 返回 settings 中应被清除的冲突 key（组内不在 profile 中的 key）

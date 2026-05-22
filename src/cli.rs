@@ -51,6 +51,12 @@ pub enum Commands {
         /// 配置名称
         name: String,
     },
+
+    /// 编辑已有配置（以当前值为默认）
+    Edit {
+        /// 配置名称
+        name: String,
+    },
 }
 
 pub fn validate_name(name: &str) -> Result<(), CsError> {
