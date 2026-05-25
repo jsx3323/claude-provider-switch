@@ -747,6 +747,45 @@ fn test_cli_list_shows_missing_active() {
 }
 
 #[test]
+fn test_cli_list_shows_outdated_when_profile_updated() {
+    let _store = setup_store();
+    let dir = setup_project(r#"{"env":{}}"#);
+
+    // 创建 profile 并 use
+    claude_provider_switch::store::save_profile("myenv", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://old", "ANTHROPIC_API_KEY": "sk-old"
+    })).unwrap();
+    run_cli("use myenv", dir.path());
+
+    // use 后 list 应显示 (active)
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("(active)"));
+    assert!(!out.contains("outdated"));
+
+    // 更新 profile 内容（模拟 edit 命令）
+    claude_provider_switch::store::save_profile("myenv", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_API_KEY": "sk-new"
+    })).unwrap();
+
+    // list 应显示 (active - outdated)
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("outdated"));
+    assert!(!out.contains("(active)") || out.contains("(active - outdated)"));
+
+    // 再次 use 后恢复正常
+    run_cli("use myenv", dir.path());
+    let (ok, stdout, stderr) = run_cli("list", dir.path());
+    assert!(ok);
+    let out = combined_output(&stdout, &stderr);
+    assert!(out.contains("(active)"));
+    assert!(!out.contains("outdated"));
+}
+
+#[test]
 fn test_cli_version() {
     let _store = setup_store();
     let dir = setup_project(r#"{"env":{"ANTHROPIC_MODEL":"x"}}"#);

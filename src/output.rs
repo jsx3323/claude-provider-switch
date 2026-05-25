@@ -32,6 +32,10 @@ pub fn list_item_missing(name: &str) {
     println!("  {} {} {}", "*".green().bold(), name.bold(), "(active - missing!)".red());
 }
 
+pub fn list_item_outdated(name: &str) {
+    println!("  {} {} {}", "*".green().bold(), name.bold(), "(active - outdated)".yellow());
+}
+
 pub fn diff_header(current_label: &str, profile_label: &str) {
     println!("--- {}", current_label);
     println!("+++ {}", profile_label);
