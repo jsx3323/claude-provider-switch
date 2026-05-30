@@ -14,7 +14,7 @@ pub fn run(name: &str, force: bool, project: &Path) -> Result<(), CsError> {
     if is_active && !force {
         output::info(&format!("Profile '{}' is currently active.", name));
         output::info("Deleting will remove the profile but leave settings.local.json unchanged.");
-        if !input::prompt_confirm()? {
+        if !input::prompt_confirm("Continue?")? {
             output::info("Cancelled.");
             return Ok(());
         }

@@ -28,12 +28,7 @@ fn run(cli: Cli) -> Result<(), CsError> {
         }
         Commands::Use { name } => {
             let project = store::find_project_dir()?;
-            if !store::has_claude_dir(&project) {
-                output::warn("当前目录没有 .claude 目录");
-                if !input::prompt_create_settings()? {
-                    return Err(CsError::NoClaudeDir);
-                }
-            }
+            ensure_claude_dir(&project)?;
             command::use_profile::run(&name, &project)
         }
         Commands::Add { name, force } => command::add::run(&name, force),
@@ -47,14 +42,20 @@ fn run(cli: Cli) -> Result<(), CsError> {
         }
         Commands::Diff { name } => {
             let project = store::find_project_dir()?;
-            if !store::has_claude_dir(&project) {
-                output::warn("当前目录没有 .claude 目录");
-                if !input::prompt_create_settings()? {
-                    return Err(CsError::NoClaudeDir);
-                }
-            }
+            ensure_claude_dir(&project)?;
             command::diff::run(&name, &project)
         }
         Commands::Edit { name } => command::edit::run(&name),
     }
+}
+
+fn ensure_claude_dir(project: &std::path::Path) -> Result<(), CsError> {
+    if store::has_claude_dir(project) {
+        return Ok(());
+    }
+    output::warn("当前目录没有 .claude 目录");
+    if !input::prompt_confirm("是否新建 .claude/settings.local.json？")? {
+        return Err(CsError::NoClaudeDir);
+    }
+    Ok(())
 }
