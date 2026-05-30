@@ -660,7 +660,7 @@ fn test_full_workflow() {
 #[test]
 fn test_cli_use_creates_settings_in_brand_new_project() {
     let _store = setup_store();
-    // 完全新项目：连 .claude 目录都不存在
+    // 完全新项目：连 .claude 目录都不存在，需要确认新建
     let dir = tempfile::tempdir().unwrap();
     assert!(!dir.path().join(".claude").exists());
 
@@ -668,12 +668,12 @@ fn test_cli_use_creates_settings_in_brand_new_project() {
         "ANTHROPIC_BASE_URL": "https://new", "ANTHROPIC_API_KEY": "sk-new", "ANTHROPIC_MODEL": "new"
     })).unwrap();
 
-    let (ok, stdout, stderr) = run_cli("use brandnew", dir.path());
+    let (ok, stdout, stderr) = run_cli_stdin("use brandnew", "y\n", dir.path());
     assert!(ok, "use failed: {}", stderr);
     let out = combined_output(&stdout, &stderr);
     assert!(out.contains("Switched to profile 'brandnew'"));
 
-    // 应自动创建 .claude 目录和 settings.local.json，并写入环境变量
+    // 确认后应自动创建 .claude 目录和 settings.local.json，并写入环境变量
     assert!(dir.path().join(".claude/settings.local.json").exists());
     let settings = read_settings(dir.path());
     assert!(settings.get("permissions").is_some());
@@ -681,6 +681,24 @@ fn test_cli_use_creates_settings_in_brand_new_project() {
     assert_eq!(env_obj.get("ANTHROPIC_BASE_URL").unwrap(), "https://new");
     assert_eq!(env_obj.get("ANTHROPIC_API_KEY").unwrap(), "sk-new");
     assert_eq!(env_obj.get("ANTHROPIC_MODEL").unwrap(), "new");
+}
+
+#[test]
+fn test_cli_use_reject_create_no_claude_dir() {
+    let _store = setup_store();
+    // 完全新项目：拒绝新建 .claude 目录应报错退出
+    let dir = tempfile::tempdir().unwrap();
+    assert!(!dir.path().join(".claude").exists());
+
+    claude_provider_switch::store::save_profile("reject", &serde_json::json!({
+        "ANTHROPIC_BASE_URL": "https://r", "ANTHROPIC_API_KEY": "sk-r"
+    })).unwrap();
+
+    let (ok, _stdout, stderr) = run_cli_stdin("use reject", "n\n", dir.path());
+    assert!(!ok);
+    assert!(stderr.contains("当前目录没有 .claude 目录"));
+    // 不应创建 .claude 目录
+    assert!(!dir.path().join(".claude").exists());
 }
 
 #[test]

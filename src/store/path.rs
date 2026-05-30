@@ -32,17 +32,11 @@ pub(crate) fn settings_local_path(project: &Path) -> PathBuf {
 }
 
 pub fn find_project_dir() -> Result<PathBuf, CsError> {
-    let cwd = env::current_dir().map_err(|e| io_err("current_dir", e))?;
-    let mut dir = cwd.as_path();
-    loop {
-        if dir.join(".claude").exists() {
-            return Ok(dir.to_path_buf());
-        }
-        match dir.parent() {
-            Some(parent) => dir = parent,
-            None => return Ok(cwd),
-        }
-    }
+    env::current_dir().map_err(|e| io_err("current_dir", e))
+}
+
+pub fn has_claude_dir(project: &Path) -> bool {
+    project.join(".claude").exists()
 }
 
 pub(crate) fn simple_hash(s: &str) -> String {

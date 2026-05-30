@@ -2,6 +2,7 @@ use clap::Parser;
 use claude_provider_switch::cli::{Cli, Commands};
 use claude_provider_switch::command;
 use claude_provider_switch::error::CsError;
+use claude_provider_switch::input;
 use claude_provider_switch::output;
 use claude_provider_switch::store;
 
@@ -27,6 +28,12 @@ fn run(cli: Cli) -> Result<(), CsError> {
         }
         Commands::Use { name } => {
             let project = store::find_project_dir()?;
+            if !store::has_claude_dir(&project) {
+                output::warn("当前目录没有 .claude 目录");
+                if !input::prompt_create_settings()? {
+                    return Err(CsError::NoClaudeDir);
+                }
+            }
             command::use_profile::run(&name, &project)
         }
         Commands::Add { name, force } => command::add::run(&name, force),
@@ -40,6 +47,12 @@ fn run(cli: Cli) -> Result<(), CsError> {
         }
         Commands::Diff { name } => {
             let project = store::find_project_dir()?;
+            if !store::has_claude_dir(&project) {
+                output::warn("当前目录没有 .claude 目录");
+                if !input::prompt_create_settings()? {
+                    return Err(CsError::NoClaudeDir);
+                }
+            }
             command::diff::run(&name, &project)
         }
         Commands::Edit { name } => command::edit::run(&name),

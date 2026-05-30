@@ -48,3 +48,10 @@ pub fn prompt_confirm() -> Result<bool, CsError> {
     io::stdin().read_line(&mut answer).map_err(|e| io_err("stdin", e))?;
     Ok(answer.trim().to_lowercase() == "y")
 }
+
+pub fn prompt_create_settings() -> Result<bool, CsError> {
+    eprintln!("是否新建 .claude/settings.local.json？[y/N] ");
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer).map_err(|e| io_err("stdin", e))?;
+    Ok(answer.trim().to_lowercase() == "y")
+}

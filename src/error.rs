@@ -37,6 +37,9 @@ pub enum CsError {
         context: String,
         source: serde_json::Error,
     },
+
+    #[error("当前目录没有 .claude 目录")]
+    NoClaudeDir,
 }
 
 impl CsError {
@@ -50,6 +53,7 @@ impl CsError {
             CsError::Json { .. } => 7,
             CsError::MalformedJson { .. } => 8,
             CsError::Serialization { .. } => 9,
+            CsError::NoClaudeDir => 10,
         }
     }
 
@@ -60,6 +64,9 @@ impl CsError {
             }
             CsError::MalformedJson { .. } => {
                 Some("Check your .claude/settings.local.json for manual edits that broke the structure".into())
+            }
+            CsError::NoClaudeDir => {
+                Some("需要新建 .claude/settings.local.json 才能使用此命令".into())
             }
             _ => None,
         }

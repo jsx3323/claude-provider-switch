@@ -16,6 +16,10 @@ pub fn info(msg: &str) {
     println!("{}", msg);
 }
 
+pub fn warn(msg: &str) {
+    eprintln!("{}", format!("Warning: {}", msg).yellow());
+}
+
 pub fn removed(key: &str) {
     println!("  - {} (removed)", key.yellow());
 }
