@@ -4,7 +4,7 @@ use crate::input;
 use crate::output;
 use crate::store::{save_profile, profile_path, derive_default_models,
                    KEY_BASE_URL, KEY_API_KEY, KEY_MODEL, KEY_SMALL_FAST_MODEL,
-                   KEY_SUBAGENT_MODEL, KEY_EFFORT_LEVEL};
+                   KEY_SUBAGENT_MODEL, KEY_EFFORT_LEVEL, KEY_AUTO_COMPACT_WINDOW};
 
 pub fn run(name: &str, force: bool) -> Result<(), CsError> {
     validate_name(name)?;
@@ -54,6 +54,13 @@ pub fn run(name: &str, force: bool) -> Result<(), CsError> {
         Some(val) => {
             env.insert(KEY_EFFORT_LEVEL.into(), serde_json::Value::String(val));
         }
+    }
+
+    match input::prompt_optional(KEY_AUTO_COMPACT_WINDOW, "")? {
+        Some(val) => {
+            env.insert(KEY_AUTO_COMPACT_WINDOW.into(), serde_json::Value::String(val));
+        }
+        None => {} // 不设置则不注入
     }
 
     save_profile(name, &serde_json::Value::Object(env))?;
