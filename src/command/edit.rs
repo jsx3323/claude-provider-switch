@@ -4,7 +4,7 @@ use crate::input;
 use crate::output;
 use crate::store::{read_profile, save_profile, derive_default_models,
                    KEY_BASE_URL, KEY_API_KEY, KEY_MODEL, KEY_SMALL_FAST_MODEL,
-                   KEY_SUBAGENT_MODEL, KEY_EFFORT_LEVEL};
+                   KEY_SUBAGENT_MODEL, KEY_EFFORT_LEVEL, KEY_AUTO_COMPACT_WINDOW};
 
 pub fn run(name: &str) -> Result<(), CsError> {
     validate_name(name)?;
@@ -73,8 +73,17 @@ pub fn run(name: &str) -> Result<(), CsError> {
         }
     }
 
-    // 保留非标准 key（如 ANTHROPIC_AUTH_TOKEN 等 derive_default_models 不覆盖的 key）
+    // AUTO_COMPACT_WINDOW 是真正的可选 key：空输入表示清空（与 add 行为一致）
+    if let Some(val) = input::prompt_optional(KEY_AUTO_COMPACT_WINDOW, get_str(KEY_AUTO_COMPACT_WINDOW))? {
+        new_env.insert(KEY_AUTO_COMPACT_WINDOW.into(), serde_json::Value::String(val));
+    }
+
+    // 保留非标准 key（如 ANTHROPIC_AUTH_TOKEN 等 derive_default_models 不覆盖的 key）。
+    // AUTO_COMPACT_WINDOW 用户可能主动清空，不从此处还原
     for (key, value) in env.iter() {
+        if key == KEY_AUTO_COMPACT_WINDOW {
+            continue;
+        }
         if !new_env.contains_key(key) {
             new_env.insert(key.clone(), value.clone());
         }
